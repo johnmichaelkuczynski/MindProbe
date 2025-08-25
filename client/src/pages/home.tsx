@@ -4,11 +4,13 @@ import { InputSection } from "@/components/InputSection";
 import { ControlPanel } from "@/components/ControlPanel";
 import { RealTimeResults } from "@/components/RealTimeResults";
 import { DialogueSystem } from "@/components/DialogueSystem";
+import { ChunkSelector } from "@/components/ChunkSelector";
 import { AnalysisType, LLMProvider } from "@/types/analysis";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useToast } from "@/hooks/use-toast";
 import { Brain, HelpCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TextChunkingService, TextChunk } from "@shared/textUtils";
 
 export default function Home() {
   const [selectedAnalysisType, setSelectedAnalysisType] = useState<AnalysisType>('cognitive');
@@ -19,6 +21,8 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [questionsProcessed, setQuestionsProcessed] = useState(0);
   const [currentPhase, setCurrentPhase] = useState("Ready");
+  const [textChunks, setTextChunks] = useState<TextChunk[]>([]);
+  const [showChunkSelector, setShowChunkSelector] = useState(false);
   
   const { toast } = useToast();
   const {
@@ -45,11 +49,24 @@ export default function Home() {
       return;
     }
 
+    // Check if text needs chunking
+    if (TextChunkingService.needsChunking(inputText)) {
+      const chunks = TextChunkingService.createChunks(inputText);
+      setTextChunks(chunks);
+      setShowChunkSelector(true);
+      return;
+    }
+
+    // Proceed with analysis
+    await performAnalysis(inputText);
+  };
+
+  const performAnalysis = async (textToAnalyze: string) => {
     try {
       await startAnalysis.mutateAsync({
         analysisType: selectedAnalysisType,
         llmProvider: selectedLLM,
-        inputText,
+        inputText: textToAnalyze,
         additionalContext: additionalContext || undefined,
       });
       
@@ -71,6 +88,17 @@ export default function Home() {
     }
   };
 
+  const handleChunksProceed = async () => {
+    const selectedText = TextChunkingService.getSelectedChunksText(textChunks);
+    setShowChunkSelector(false);
+    await performAnalysis(selectedText);
+  };
+
+  const handleChunksCancel = () => {
+    setShowChunkSelector(false);
+    setTextChunks([]);
+  };
+
   const handleFileUpload = async (file: File) => {
     try {
       const result = await uploadFile.mutateAsync(file);
@@ -79,6 +107,14 @@ export default function Home() {
         title: "File uploaded",
         description: `Successfully extracted text from ${file.name}`,
       });
+
+      // Check if uploaded text needs chunking
+      if (TextChunkingService.needsChunking(result.text)) {
+        toast({
+          title: "Large file detected",
+          description: "The uploaded text is longer than 1000 words. You'll need to select chunks before analysis.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Upload failed",
@@ -196,6 +232,18 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {/* Chunk Selector Modal */}
+      {showChunkSelector && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <ChunkSelector
+            chunks={textChunks}
+            onChunksChange={setTextChunks}
+            onProceed={handleChunksProceed}
+            onCancel={handleChunksCancel}
+          />
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Analysis Selector */}
