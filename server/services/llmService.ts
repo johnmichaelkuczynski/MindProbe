@@ -11,8 +11,8 @@ When copying code from this code snippet, ensure you also include this informati
 
 // <important_do_not_delete>
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
-// Using gpt-4o for reliable streaming without organization verification requirements
-const DEFAULT_OPENAI_MODEL = "gpt-4o";
+// Using gpt-3.5-turbo for reliable streaming without verification requirements
+const DEFAULT_OPENAI_MODEL = "gpt-3.5-turbo";
 // </important_do_not_delete>
 
 export type LLMProvider = "zhi1" | "zhi2" | "zhi3" | "zhi4";
