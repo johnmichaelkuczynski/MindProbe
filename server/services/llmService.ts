@@ -11,8 +11,8 @@ When copying code from this code snippet, ensure you also include this informati
 
 // <important_do_not_delete>
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const DEFAULT_OPENAI_MODEL = "gpt-5";
+// Using gpt-4o for reliable streaming without organization verification requirements
+const DEFAULT_OPENAI_MODEL = "gpt-4o";
 // </important_do_not_delete>
 
 export type LLMProvider = "zhi1" | "zhi2" | "zhi3" | "zhi4";
