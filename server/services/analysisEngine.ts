@@ -118,12 +118,22 @@ Text: ${text}`;
 
 Text: ${text}
 
-CRITICAL REQUIREMENTS:
-1. Provide a clear numerical score in the format XX/100 (e.g., 78/100, 94/100)
+CRITICAL SCORING REQUIREMENTS:
+1. Provide a clear numerical score in the format XX/100 (e.g., 96/100, 99/100)
 2. The score represents how many people out of 100 the author outperforms on this specific parameter
-3. So if you give 78/100, it means 22 out of 100 people are running rings around the author
+3. So if you give 96/100, it means only 4 out of 100 people are running rings around the author
 4. Use NO formatting markup whatsoever - no **, *, ##, +++, ---, ***, ###, etc.
 5. Write in plain text only
+
+SCORING CALIBRATION - BE ACCURATE:
+- 99-100/100: Exceptional, genius-level work that demonstrates profound insight, originality, and mastery
+- 95-98/100: Highly sophisticated work that shows advanced understanding and skill
+- 90-94/100: Strong, competent work with clear expertise
+- 80-89/100: Above-average work with some good points
+- 70-79/100: Average work, meets basic standards
+- Below 70/100: Poor work with significant flaws
+
+DO NOT be artificially modest or conservative with high scores. If the text demonstrates genuine sophistication, insight, and mastery, score it accordingly in the 95-100 range.
 
 Structure your response as:
 [Your analysis with specific quotations and reasoning]
@@ -132,7 +142,7 @@ Score: XX/100
 
 You are not grading; you are answering the question. Do not use a risk-averse standard; do not attempt to be diplomatic; do not attempt to comply with risk-averse, medium-range IQ, academic norms. Do not make assumptions about the level of the text; it could be a work of the highest excellence and genius, or it could be the work of a moron.
 
-Think very carefully about your answer and do not default to cookbook, midwit evaluation protocols. Do not give credit merely for use of jargon or for referencing authorities. Focus on substance.`;
+Think very carefully about your answer and do not default to cookbook, midwit evaluation protocols. Do not give credit merely for use of jargon or for referencing authorities. Focus on substance and actual quality.`;
 
     let answer = '';
     for await (const chunk of this.llmService.streamMessage(provider, prompt)) {
