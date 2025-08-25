@@ -26,7 +26,10 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
   const streamUrl = analysisId ? `/api/analysis/${analysisId}/stream` : null;
   
   const { data: streamData, isConnected, error } = useSSE<StreamEvent>(streamUrl, (event) => {
+    console.log('RealTimeResults received event:', event);
+    
     if (event.type === 'summary') {
+      console.log('Processing summary event:', event.data);
       setResults(prev => {
         const existingSummaryIndex = prev.findIndex(r => r.type === 'summary');
         const newResult: ProcessedResult = {
@@ -35,15 +38,15 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
           complete: event.data.complete
         };
         
-        if (existingSummaryIndex >= 0) {
-          const updated = [...prev];
-          updated[existingSummaryIndex] = newResult;
-          return updated;
-        } else {
-          return [newResult, ...prev];
-        }
+        const updatedResults = existingSummaryIndex >= 0 
+          ? prev.map((r, i) => i === existingSummaryIndex ? newResult : r)
+          : [newResult, ...prev];
+        
+        console.log('Updated results after summary:', updatedResults);
+        return updatedResults;
       });
     } else if (event.type === 'question') {
+      console.log('Processing question event:', event.data);
       setResults(prev => {
         const existingQuestionIndex = prev.findIndex(r => 
           r.type === 'question' && r.questionId === event.data.questionId
@@ -57,18 +60,21 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
           complete: event.data.complete
         };
         
-        if (existingQuestionIndex >= 0) {
-          const updated = [...prev];
-          updated[existingQuestionIndex] = newResult;
-          return updated;
-        } else {
-          return [...prev, newResult];
-        }
+        const updatedResults = existingQuestionIndex >= 0
+          ? prev.map((r, i) => i === existingQuestionIndex ? newResult : r)
+          : [...prev, newResult];
+        
+        console.log('Updated results after question:', updatedResults);
+        return updatedResults;
       });
     } else if (event.type === 'complete') {
+      console.log('Analysis complete event received');
       setStreamingStatus("Complete");
     } else if (event.type === 'error') {
+      console.log('Analysis error event received:', event);
       setStreamingStatus("Error");
+    } else {
+      console.log('Unknown event type received:', event);
     }
   });
 
