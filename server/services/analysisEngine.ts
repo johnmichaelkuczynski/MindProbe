@@ -118,7 +118,17 @@ Text: ${text}`;
 
 Text: ${text}
 
-Provide your answer with specific quotations from the text and accompanying reasoning. Also give a score out of 100 where a score of N/100 means that (100-N)/100 outperform the author with respect to the parameter defined by the question.
+CRITICAL REQUIREMENTS:
+1. Provide a clear numerical score in the format XX/100 (e.g., 78/100, 94/100)
+2. The score represents how many people out of 100 the author outperforms on this specific parameter
+3. So if you give 78/100, it means 22 out of 100 people are running rings around the author
+4. Use NO formatting markup whatsoever - no **, *, ##, +++, ---, ***, ###, etc.
+5. Write in plain text only
+
+Structure your response as:
+[Your analysis with specific quotations and reasoning]
+
+Score: XX/100
 
 You are not grading; you are answering the question. Do not use a risk-averse standard; do not attempt to be diplomatic; do not attempt to comply with risk-averse, medium-range IQ, academic norms. Do not make assumptions about the level of the text; it could be a work of the highest excellence and genius, or it could be the work of a moron.
 

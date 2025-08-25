@@ -105,24 +105,54 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
   };
 
   const formatContent = (content: string) => {
-    // Simple formatting for quotations and scores
-    return content
+    // Clean up all markdown-style formatting and extract scores
+    const cleanContent = content
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove **bold**
+      .replace(/\*([^*]+)\*/g, '$1')     // Remove *italic*
+      .replace(/#+\s*/g, '')            // Remove ### headers
+      .replace(/```([^`]*)```/g, '$1')  // Remove ```code blocks```
+      .replace(/`([^`]+)`/g, '$1')      // Remove `inline code`
+      .replace(/^\s*[\-\*\+]\s+/gm, '') // Remove bullet points
+      .replace(/^\s*\d+\.\s+/gm, '')    // Remove numbered lists
+      .replace(/__([^_]+)__/g, '$1')    // Remove __underline__
+      .replace(/~~([^~]+)~~/g, '$1')    // Remove ~~strikethrough~~
+      .trim();
+
+    return cleanContent
       .split('\n')
       .map((line, index) => {
-        if (line.includes('Score:')) {
+        // Extract and highlight scores (like 25/100, 94/100, etc.)
+        const scoreMatch = line.match(/(\d+\/100)/);
+        if (scoreMatch) {
+          const score = parseInt(scoreMatch[1].split('/')[0]);
+          const scoreColor = score >= 90 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600';
+          
           return (
-            <div key={index} className="mt-4 p-3 bg-white rounded border border-border-light">
-              <strong>{line}</strong>
+            <div key={index} className="mt-3 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 flex-1">{line.replace(scoreMatch[0], '').trim()}</span>
+                <span className={`font-bold text-2xl ${scoreColor} ml-4`}>
+                  {scoreMatch[0]}
+                </span>
+              </div>
             </div>
           );
-        } else if (line.startsWith('"') && line.endsWith('"')) {
+        }
+        // Handle quotations
+        else if (line.startsWith('"') && line.endsWith('"')) {
           return (
             <blockquote key={index} className="border-l-4 border-gray-300 pl-4 my-3 italic text-gray-600">
               {line}
             </blockquote>
           );
-        } else {
-          return <p key={index} className="text-gray-700 mb-2">{line}</p>;
+        }
+        // Regular paragraphs
+        else if (line.trim()) {
+          return <p key={index} className="text-gray-700 mb-2 leading-relaxed">{line}</p>;
+        }
+        // Empty lines
+        else {
+          return <div key={index} className="mb-2"></div>;
         }
       });
   };
