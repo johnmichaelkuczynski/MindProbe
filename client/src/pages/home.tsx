@@ -8,7 +8,7 @@ import { ChunkSelector } from "@/components/ChunkSelector";
 import { AnalysisType, LLMProvider } from "@/types/analysis";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, HelpCircle, Settings } from "lucide-react";
+import { Brain, HelpCircle, Settings, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextChunkingService, TextChunk } from "@shared/textUtils";
 
@@ -38,6 +38,26 @@ export default function Home() {
   } = useAnalysis();
 
   const totalQuestions = 18; // This would vary based on analysis type
+
+  const handleNewAnalysis = () => {
+    // Clear all text inputs
+    setInputText("");
+    setAdditionalContext("");
+    
+    // Clear analysis state
+    setIsAnalyzing(false);
+    setProgress(0);
+    setQuestionsProcessed(0);
+    setCurrentPhase("Ready");
+    
+    // Clear chunks and modals
+    setTextChunks([]);
+    setShowChunkSelector(false);
+    
+    // Force a complete page refresh to clear all analysis state and results
+    // This ensures the RealTimeResults component shows a clean empty state
+    window.location.reload();
+  };
 
   const handleStartAnalysis = async () => {
     if (!inputText.trim()) {
@@ -222,6 +242,16 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center space-x-4">
+              <Button 
+                onClick={handleNewAnalysis}
+                variant="outline" 
+                size="sm" 
+                className="text-primary-blue border-primary-blue hover:bg-primary-blue hover:text-white"
+                data-testid="button-new-analysis"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Analysis
+              </Button>
               <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
                 <HelpCircle className="h-5 w-5" />
               </Button>
