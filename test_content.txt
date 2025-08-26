@@ -1,4 +1,4 @@
-This is a comprehensive test document for the Mind Reader application.
+This is a comprehensive test document for the Super Profiler application.
 
 The application provides cognitive, psychological, and psychopathological analysis through advanced AI models.
 

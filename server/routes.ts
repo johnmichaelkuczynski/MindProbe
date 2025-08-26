@@ -144,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Format results as text
-      let textContent = `Mind Reader Analysis Report\n`;
+      let textContent = `Super Profiler Analysis Report\n`;
       textContent += `Analysis Type: ${analysis.analysisType}\n`;
       textContent += `LLM Provider: ${analysis.llmProvider}\n`;
       textContent += `Date: ${analysis.createdAt}\n\n`;

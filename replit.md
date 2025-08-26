@@ -1,6 +1,6 @@
 # Overview
 
-Mind Reader is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis types: cognitive, comprehensive cognitive, psychological, comprehensive psychological, psychopathological, and comprehensive psychopathological. The application functions as a passthrough system that relays user input to LLM services and returns unfiltered responses for professional assessment purposes.
+Super Profiler is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis types: cognitive, comprehensive cognitive, psychological, comprehensive psychological, psychopathological, and comprehensive psychopathological. The application functions as a passthrough system that relays user input to LLM services and returns unfiltered responses for professional assessment purposes.
 
 # User Preferences
 
