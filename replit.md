@@ -6,6 +6,15 @@ Super Profiler is a cognitive/psychological/psychopathological profiler applicat
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes
+
+## Enhanced Intelligence Assessment Protocol (January 26, 2025)
+- Added 6 new pseudo-intellectual detection questions to cognitive analysis
+- Updated total question count from 18 to 24 for cognitive assessments
+- Enhanced LLM prompts with pseudo-intellectual detection protocols
+- Questions now specifically detect undefined jargon, free variables, and meaningless placeholder terms
+- Added capability to identify content that masquerades as intelligent through presumption rather than substance
+
 # System Architecture
 
 ## Frontend Architecture

@@ -37,7 +37,7 @@ export default function Home() {
     isUploading,
   } = useAnalysis();
 
-  const totalQuestions = 18; // This would vary based on analysis type
+  const totalQuestions = 24; // Updated to include new pseudo-intellectual detection questions
 
   const handleNewAnalysis = () => {
     // Clear all text inputs
