@@ -2,26 +2,37 @@ import multer from 'multer';
 import { Request } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 // For PDF processing
 const pdfParse = async (buffer: Buffer): Promise<string> => {
   try {
-    const pdf = await import('pdf-parse');
-    const data = await pdf.default(buffer);
-    return data.text;
+    // Load pdf-parse without initialization issues by lazy loading
+    const pdfParseFunction = require('pdf-parse');
+    const data = await pdfParseFunction(buffer);
+    return data.text || '';
   } catch (error) {
-    throw new Error('Failed to parse PDF file');
+    console.error('PDF parse error:', error);
+    // Try to handle common PDF parsing issues
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('ENOENT')) {
+      throw new Error('PDF file appears to be corrupted or invalid');
+    }
+    throw new Error('Failed to parse PDF file: ' + errorMessage);
   }
 };
 
-// For Word document processing
-const mammoth = async (buffer: Buffer): Promise<string> => {
+// For Word document processing  
+const mammothParse = async (buffer: Buffer): Promise<string> => {
   try {
-    const mammothLib = await import('mammoth');
+    const mammothLib = require('mammoth');
     const result = await mammothLib.extractRawText({ buffer });
     return result.value;
   } catch (error) {
-    throw new Error('Failed to parse Word document');
+    console.error('Mammoth parse error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error('Failed to parse Word document: ' + errorMessage);
   }
 };
 
@@ -65,7 +76,7 @@ export class FileProcessor {
              mimetype === 'application/msword' ||
              extension === '.docx' || 
              extension === '.doc':
-          return await mammoth(buffer);
+          return await mammothParse(buffer);
         
         case mimetype === 'text/plain' || extension === '.txt':
           return buffer.toString('utf-8');
