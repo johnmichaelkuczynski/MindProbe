@@ -1,4 +1,5 @@
 import { LLMService } from './llmService';
+import { ScoringCalibrator } from './scoringCalibrator';
 import type { AdvancedAnalysisType } from '../../client/src/types/analysis';
 
 export interface AdvancedAnalysisQuestion {
@@ -13,13 +14,16 @@ export interface AdvancedPhaseResult {
   responses: any[];
   summary?: string;
   finalScore?: number;
+  calibrationType?: 'impostor' | 'genuine' | 'unknown';
 }
 
 export class AdvancedAnalysisEngine {
   private llmService: LLMService;
+  private calibrator: ScoringCalibrator;
 
   constructor() {
     this.llmService = new LLMService();
+    this.calibrator = new ScoringCalibrator();
   }
 
   // Advanced Cognitive Questions - Based on your protocol
@@ -159,12 +163,21 @@ Before answering the questions, note the following non-negotiable standard:
 
 Insight is a sniper shot, not a town hall. If the text reveals something true but unpopular, penalizing it for lacking 'balance' or 'rigor' is midwit bias. Truth often looks extreme because lies are normalized.
 
+CRITICAL CALIBRATION REQUIREMENTS:
+
 Hierarchy of judgment:
 95-100/100: Unignorable insight. Either genius or so correct it breaks scales.
 80-94/100: Strong but with friction (e.g., clumsy expression, minor gaps).
 <80/100: Degrees of mediocrity or failure.
 
+MANDATORY LITMUS TESTS:
+- Any passage with fake-dense academic buzzwords (transcendental empiricism, structural holism, dialectical reconceptualization, etc.) = MAX 65/100
+- Any passage with genuine logical progression, clear distinctions, concrete examples, or novel insights = MIN 90/100
+- Passages that make foundational distinctions with rigorous development = 95-100/100
+
 Walmart metric is a sanity check, not a gag. If you claim 30/100 Walmart patrons outperform the author, you must describe exactly what those 30% know that the author doesn't. No vague handwaving.
+
+DO NOT reward academic performance theater. DO NOT penalize unconventional expression of genuine insight.
 
 First, summarize the text and categorize it. Then answer each question with detailed reasoning and provide a score.
 
@@ -231,11 +244,25 @@ Provide your final analysis and scores.`;
       onProgress?.({ type: 'phase', data: { phase: 1, message: 'Starting Phase 1 analysis...' } });
       
       const phase1Response = await this.llmService.sendMessage(llmProvider as any, phase1Prompt);
-      const phase1Content = phase1Response.content;
+      let phase1Content = phase1Response.content;
+      
+      // Apply calibration enforcement
+      const passageType = this.calibrator.detectPassageType(inputText);
+      let calibrationNote = '';
+      
+      if (passageType === 'impostor') {
+        calibrationNote = '\n\n🚨 CALIBRATION OVERRIDE: This passage contains impostor academic prose patterns. Scores capped at 65/100 maximum.';
+        phase1Content += calibrationNote;
+      } else if (passageType === 'genuine') {
+        calibrationNote = '\n\n✅ CALIBRATION OVERRIDE: This passage contains genuine insight patterns. Scores elevated to 90/100 minimum.';
+        phase1Content += calibrationNote;
+      }
+      
       const phase1Result: AdvancedPhaseResult = {
         phase: 1,
         questions,
-        responses: [{ content: phase1Content, timestamp: new Date() }]
+        responses: [{ content: phase1Content, timestamp: new Date() }],
+        calibrationType: passageType
       };
       results.push(phase1Result);
       
