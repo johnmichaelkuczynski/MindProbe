@@ -133,16 +133,26 @@ SCORING CALIBRATION - BE ACCURATE:
 - 70-79/100: Average work, meets basic standards
 - Below 70/100: Poor work with significant flaws
 
-PSEUDO-INTELLECTUAL DETECTION PROTOCOL:
-Be vigilant about pseudo-intellectual content that masquerades as intelligent writing. This includes:
-- Undefined terms with no canonical meanings functioning as meaningless placeholders
-- "Free variables" - qualifications that don't connect to anything
-- Statements that are merely added rather than developed from previous ones
-- Technical jargon used to obfuscate rather than clarify
-- Writing that appears "smart" only through presumption rather than actual substance
-- Content that would retain the same meaning if technical terms were replaced with nonsense words
+PSEUDO-INTELLECTUAL DETECTION PROTOCOL - CRITICAL:
+You MUST ruthlessly identify and heavily penalize pseudo-intellectual content. Use these detection criteria:
 
-If you detect pseudo-intellectual patterns, score accordingly low regardless of surface complexity.
+1. UNDEFINED JARGON TEST: Are there terms like "mass-energy-distribution," "veridical awarenesses," or "epistemic norms" that sound technical but are undefined placeholders? If yes, score LOW (20-40/100).
+
+2. PLACEHOLDER TEST: Could technical terms be replaced with "X," "Y," "Z" without changing the meaning? If yes, it's pseudo-intellectual. Score LOW (15-30/100).
+
+3. FREE VARIABLE TEST: Are there qualifications that don't connect to anything else in the text? Disconnected technical phrases? Score LOW (20-35/100).
+
+4. PRESUMPTION-SMART TEST: Is it "smart" only because philosophy/academia is presumed complex? Would a clear writer say the same thing more simply? If yes, score LOW (25-40/100).
+
+5. OBFUSCATION TEST: Does technical language hide rather than reveal? Are simple ideas buried under jargon? Score LOW (20-40/100).
+
+EXAMPLES OF PSEUDO-INTELLECTUAL CONTENT TO PENALIZE HEAVILY:
+- "shoe-related mass-energy-distribution" (meaningless technical phrase)
+- "veridical awarenesses" (undefined jargon)
+- "epistemic norms" without definition
+- Complex terminology that adds no precision
+
+DO NOT be fooled by surface complexity. If content uses undefined jargon as placeholders, score it severely low regardless of how sophisticated it sounds.
 
 DO NOT be artificially modest or conservative with high scores. If the text demonstrates genuine sophistication, insight, and mastery, score it accordingly in the 95-100 range.
 

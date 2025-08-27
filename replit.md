@@ -14,6 +14,7 @@ Preferred communication style: Simple, everyday language.
 - Enhanced LLM prompts with pseudo-intellectual detection protocols
 - Questions now specifically detect undefined jargon, free variables, and meaningless placeholder terms
 - Added capability to identify content that masquerades as intelligent through presumption rather than substance
+- **CRITICAL FIX**: Strengthened detection protocol with explicit scoring penalties (20-40/100) for pseudo-intellectual markers after initial implementation failed to properly identify jargon-heavy content
 
 # System Architecture
 
