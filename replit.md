@@ -11,6 +11,8 @@ Mind Reader is a cognitive/psychological/psychopathological profiler application
 - ✓ Removed all formatting markup from LLM outputs for clean plain text responses
 - ✓ **VERIFIED WORKING**: System successfully processing analyses with revised protocol (August 27, 2025)
 - ✓ Real-time streaming confirmed functional with proper SSE connections
+- ✓ Added "New Analysis" button for easy reset functionality
+- ✓ **OUTSTANDING PERFORMANCE**: LLM properly identifying and analyzing pseudo-intellectual text with sophisticated evaluation
 
 # User Preferences
 
