@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, Play, Square, Download } from "lucide-react";
 import { TextChunkingService, type TextChunk } from "@shared/textUtils";
+import { DragDropTextarea } from "@/components/DragDropTextarea";
 
 type AnalysisMode = 'cognitive-short' | 'cognitive-long' | 'psychological-short' | 'psychological-long' | 'psychopathological-short' | 'psychopathological-long';
 type LLMProvider = 'zhi1' | 'zhi2' | 'zhi3' | 'zhi4';
@@ -25,16 +26,30 @@ interface AnalysisResult {
 }
 
 export default function MindReader() {
-  const [inputText, setInputText] = useState("");
-  const [selectedMode, setSelectedMode] = useState<AnalysisMode>('cognitive-short');
-  const [selectedLLM, setSelectedLLM] = useState<LLMProvider>('zhi1');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [chunks, setChunks] = useState<TextChunk[]>([]);
-  const [showChunks, setShowChunks] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [progressMessage, setProgressMessage] = useState("");
-  const [streamingMessages, setStreamingMessages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState<'tab1' | 'tab2'>('tab1');
+  
+  // Tab 1 state
+  const [tab1InputText, setTab1InputText] = useState("");
+  const [tab1SelectedMode, setTab1SelectedMode] = useState<AnalysisMode>('cognitive-short');
+  const [tab1SelectedLLM, setTab1SelectedLLM] = useState<LLMProvider>('zhi1');
+  const [tab1IsAnalyzing, setTab1IsAnalyzing] = useState(false);
+  const [tab1AnalysisResult, setTab1AnalysisResult] = useState<AnalysisResult | null>(null);
+  const [tab1ProgressMessage, setTab1ProgressMessage] = useState("");
+  const [tab1StreamingMessages, setTab1StreamingMessages] = useState<string[]>([]);
+  const [tab1Chunks, setTab1Chunks] = useState<TextChunk[]>([]);
+  const [tab1ShowChunks, setTab1ShowChunks] = useState(false);
+  
+  // Tab 2 state
+  const [tab2InputText, setTab2InputText] = useState("");
+  const [tab2SelectedMode, setTab2SelectedMode] = useState<AnalysisMode>('cognitive-short');
+  const [tab2SelectedLLM, setTab2SelectedLLM] = useState<LLMProvider>('zhi1');
+  const [tab2IsAnalyzing, setTab2IsAnalyzing] = useState(false);
+  const [tab2AnalysisResult, setTab2AnalysisResult] = useState<AnalysisResult | null>(null);
+  const [tab2ProgressMessage, setTab2ProgressMessage] = useState("");
+  const [tab2StreamingMessages, setTab2StreamingMessages] = useState<string[]>([]);
+  const [tab2Chunks, setTab2Chunks] = useState<TextChunk[]>([]);
+  const [tab2ShowChunks, setTab2ShowChunks] = useState(false);
 
   const analysisTypes = [
     { value: 'cognitive-short', label: 'Cognitive (Normal)' },
@@ -76,45 +91,79 @@ export default function MindReader() {
     }
   };
 
-  const handleTextInput = (text: string) => {
-    setInputText(text);
-    
-    if (TextChunkingService.needsChunking(text)) {
-      const newChunks = TextChunkingService.createChunks(text);
-      setChunks(newChunks);
-      setShowChunks(true);
+  const handleTextInput = (text: string, tabId: 'tab1' | 'tab2' = activeTab) => {
+    if (tabId === 'tab1') {
+      setTab1InputText(text);
+      if (TextChunkingService.needsChunking(text)) {
+        const newChunks = TextChunkingService.createChunks(text);
+        setTab1Chunks(newChunks);
+        setTab1ShowChunks(true);
+      } else {
+        setTab1Chunks([]);
+        setTab1ShowChunks(false);
+      }
     } else {
-      setChunks([]);
-      setShowChunks(false);
+      setTab2InputText(text);
+      if (TextChunkingService.needsChunking(text)) {
+        const newChunks = TextChunkingService.createChunks(text);
+        setTab2Chunks(newChunks);
+        setTab2ShowChunks(true);
+      } else {
+        setTab2Chunks([]);
+        setTab2ShowChunks(false);
+      }
     }
   };
 
-  const toggleChunk = (chunkId: string) => {
-    setChunks(chunks.map(chunk => 
-      chunk.id === chunkId ? { ...chunk, selected: !chunk.selected } : chunk
-    ));
+  const toggleChunk = (chunkId: string, tabId: 'tab1' | 'tab2' = activeTab) => {
+    if (tabId === 'tab1') {
+      setTab1Chunks(tab1Chunks.map(chunk => 
+        chunk.id === chunkId ? { ...chunk, selected: !chunk.selected } : chunk
+      ));
+    } else {
+      setTab2Chunks(tab2Chunks.map(chunk => 
+        chunk.id === chunkId ? { ...chunk, selected: !chunk.selected } : chunk
+      ));
+    }
   };
 
-  const getTextToAnalyze = () => {
-    if (showChunks && chunks.length > 0) {
-      return TextChunkingService.getSelectedChunksText(chunks);
+  const getTextToAnalyze = (tabId: 'tab1' | 'tab2' = activeTab) => {
+    const tabData = tabId === 'tab1' ? 
+      { showChunks: tab1ShowChunks, chunks: tab1Chunks, inputText: tab1InputText } :
+      { showChunks: tab2ShowChunks, chunks: tab2Chunks, inputText: tab2InputText };
+      
+    if (tabData.showChunks && tabData.chunks.length > 0) {
+      return TextChunkingService.getSelectedChunksText(tabData.chunks);
     }
-    return inputText;
+    return tabData.inputText;
   };
 
   const stopAnalysis = () => {
-    setIsAnalyzing(false);
-    setProgressMessage("");
+    if (activeTab === 'tab1') {
+      setTab1IsAnalyzing(false);
+      setTab1ProgressMessage("");
+    } else {
+      setTab2IsAnalyzing(false);
+      setTab2ProgressMessage("");
+    }
   };
 
   const startAnalysis = async () => {
-    const textToAnalyze = getTextToAnalyze();
+    const textToAnalyze = getTextToAnalyze(activeTab);
     if (!textToAnalyze.trim()) return;
 
-    setIsAnalyzing(true);
-    setAnalysisResult(null);
-    setStreamingMessages([]);
-    setProgressMessage("Starting analysis...");
+    // Set analyzing state for current tab
+    if (activeTab === 'tab1') {
+      setTab1IsAnalyzing(true);
+      setTab1AnalysisResult(null);
+      setTab1StreamingMessages([]);
+      setTab1ProgressMessage("Starting analysis...");
+    } else {
+      setTab2IsAnalyzing(true);
+      setTab2AnalysisResult(null);
+      setTab2StreamingMessages([]);
+      setTab2ProgressMessage("Starting analysis...");
+    }
 
     try {
       const response = await fetch('/api/mind-reader/analyze', {
@@ -124,8 +173,8 @@ export default function MindReader() {
         },
         body: JSON.stringify({
           text: textToAnalyze,
-          mode: selectedMode,
-          llmProvider: selectedLLM,
+          mode: currentTab.selectedMode,
+          llmProvider: currentTab.selectedLLM,
         }),
       });
 
@@ -133,7 +182,11 @@ export default function MindReader() {
         throw new Error(`Analysis request failed: ${response.statusText}`);
       }
 
-      setProgressMessage("Connected - processing...");
+      if (activeTab === 'tab1') {
+        setTab1ProgressMessage("Connected - processing...");
+      } else {
+        setTab2ProgressMessage("Connected - processing...");
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -168,14 +221,29 @@ export default function MindReader() {
                 console.log('Received stream data:', data);
                 
                 if (data.type === 'progress') {
-                  setProgressMessage(data.message);
-                  setStreamingMessages(prev => [...prev, data.message]);
+                  if (activeTab === 'tab1') {
+                    setTab1ProgressMessage(data.message);
+                    setTab1StreamingMessages(prev => [...prev, data.message]);
+                  } else {
+                    setTab2ProgressMessage(data.message);
+                    setTab2StreamingMessages(prev => [...prev, data.message]);
+                  }
                 } else if (data.type === 'result') {
-                  setAnalysisResult(data.data);
-                  setProgressMessage("Analysis complete - displaying results");
+                  if (activeTab === 'tab1') {
+                    setTab1AnalysisResult(data.data);
+                    setTab1ProgressMessage("Analysis complete - displaying results");
+                  } else {
+                    setTab2AnalysisResult(data.data);
+                    setTab2ProgressMessage("Analysis complete - displaying results");
+                  }
                 } else if (data.type === 'complete') {
-                  setIsAnalyzing(false);
-                  setProgressMessage("Analysis finished successfully");
+                  if (activeTab === 'tab1') {
+                    setTab1IsAnalyzing(false);
+                    setTab1ProgressMessage("Analysis finished successfully");
+                  } else {
+                    setTab2IsAnalyzing(false);
+                    setTab2ProgressMessage("Analysis finished successfully");
+                  }
                 } else if (data.type === 'error') {
                   throw new Error(data.message);
                 }
@@ -193,8 +261,13 @@ export default function MindReader() {
           if (jsonStr) {
             const data = JSON.parse(jsonStr);
             if (data.type === 'complete') {
-              setIsAnalyzing(false);
-              setProgressMessage("Analysis finished successfully");
+              if (activeTab === 'tab1') {
+                setTab1IsAnalyzing(false);
+                setTab1ProgressMessage("Analysis finished successfully");
+              } else {
+                setTab2IsAnalyzing(false);
+                setTab2ProgressMessage("Analysis finished successfully");
+              }
             }
           }
         } catch (parseError) {
@@ -202,32 +275,44 @@ export default function MindReader() {
         }
       }
 
-      if (isAnalyzing) {
-        setIsAnalyzing(false);
-        setProgressMessage("Analysis completed");
+      if (activeTab === 'tab1') {
+        if (tab1IsAnalyzing) {
+          setTab1IsAnalyzing(false);
+          setTab1ProgressMessage("Analysis completed");
+        }
+      } else {
+        if (tab2IsAnalyzing) {
+          setTab2IsAnalyzing(false);
+          setTab2ProgressMessage("Analysis completed");
+        }
       }
 
     } catch (error) {
       console.error('Analysis error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      setProgressMessage(`Analysis failed: ${errorMessage}`);
-      setIsAnalyzing(false);
+      if (activeTab === 'tab1') {
+        setTab1ProgressMessage(`Analysis failed: ${errorMessage}`);
+        setTab1IsAnalyzing(false);
+      } else {
+        setTab2ProgressMessage(`Analysis failed: ${errorMessage}`);
+        setTab2IsAnalyzing(false);
+      }
     }
   };
 
   const downloadResults = () => {
-    if (!analysisResult) return;
+    if (!currentTab.analysisResult) return;
 
-    let content = `Tab 2 Analysis Report\n`;
-    content += `Analysis Type: ${selectedMode}\n`;
-    content += `LLM Provider: ${selectedLLM}\n`;
+    let content = `${activeTab} Analysis Report\n`;
+    content += `Analysis Type: ${currentTab.selectedMode}\n`;
+    content += `LLM Provider: ${currentTab.selectedLLM}\n`;
     content += `Date: ${new Date().toISOString()}\n\n`;
-    content += `Summary: ${analysisResult.summary}\n\n`;
-    content += `Category: ${analysisResult.category}\n\n`;
-    content += `Final Score: ${analysisResult.finalScore}/100\n\n`;
+    content += `Summary: ${currentTab.analysisResult.summary}\n\n`;
+    content += `Category: ${currentTab.analysisResult.category}\n\n`;
+    content += `Final Score: ${currentTab.analysisResult.finalScore}/100\n\n`;
     content += `Questions and Responses:\n\n`;
 
-    analysisResult.responses.forEach((response, index) => {
+    currentTab.analysisResult.responses.forEach((response, index) => {
       content += `${index + 1}. ${response.question}\n`;
       content += `Score: ${response.score}/100\n`;
       content += `Answer: ${response.answer}\n\n`;
@@ -244,16 +329,89 @@ export default function MindReader() {
     URL.revokeObjectURL(url);
   };
 
+  // Get current tab values
+  const getCurrentTabValues = () => {
+    if (activeTab === 'tab1') {
+      return {
+        inputText: tab1InputText,
+        selectedMode: tab1SelectedMode,
+        selectedLLM: tab1SelectedLLM,
+        isAnalyzing: tab1IsAnalyzing,
+        analysisResult: tab1AnalysisResult,
+        progressMessage: tab1ProgressMessage,
+        streamingMessages: tab1StreamingMessages,
+        chunks: tab1Chunks,
+        showChunks: tab1ShowChunks,
+      };
+    } else {
+      return {
+        inputText: tab2InputText,
+        selectedMode: tab2SelectedMode,
+        selectedLLM: tab2SelectedLLM,
+        isAnalyzing: tab2IsAnalyzing,
+        analysisResult: tab2AnalysisResult,
+        progressMessage: tab2ProgressMessage,
+        streamingMessages: tab2StreamingMessages,
+        chunks: tab2Chunks,
+        showChunks: tab2ShowChunks,
+      };
+    }
+  };
+
+  const currentTab = getCurrentTabValues();
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="text-center py-4 border-b">
-        <h1 className="text-3xl font-bold text-gray-900">Tab 2</h1>
+      <div className="bg-white border-b">
+        <div className="px-6 py-4">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Mind Reader - Cognitive Analysis Platform
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Advanced AI-powered text analysis with multiple LLM providers
+          </p>
+          
+          {/* Tab Navigation */}
+          <div className="flex mt-4 space-x-1">
+            <button
+              onClick={() => setActiveTab('tab1')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'tab1'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+              data-testid="button-tab1"
+            >
+              Tab 1
+            </button>
+            <button
+              onClick={() => setActiveTab('tab2')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'tab2'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+              data-testid="button-tab2"
+            >
+              Tab 2
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Controls Bar */}
       <div className="bg-gray-50 p-3 border-b flex items-center gap-4 flex-wrap">
-        <Select value={selectedMode} onValueChange={(value: AnalysisMode) => setSelectedMode(value)}>
+        <Select 
+          value={currentTab.selectedMode} 
+          onValueChange={(value: AnalysisMode) => {
+            if (activeTab === 'tab1') {
+              setTab1SelectedMode(value);
+            } else {
+              setTab2SelectedMode(value);
+            }
+          }}
+        >
           <SelectTrigger className="w-48" data-testid="analysis-type-select">
             <SelectValue />
           </SelectTrigger>
@@ -266,7 +424,16 @@ export default function MindReader() {
           </SelectContent>
         </Select>
 
-        <Select value={selectedLLM} onValueChange={(value: LLMProvider) => setSelectedLLM(value)}>
+        <Select 
+          value={currentTab.selectedLLM} 
+          onValueChange={(value: LLMProvider) => {
+            if (activeTab === 'tab1') {
+              setTab1SelectedLLM(value);
+            } else {
+              setTab2SelectedLLM(value);
+            }
+          }}
+        >
           <SelectTrigger className="w-40" data-testid="llm-provider-select">
             <SelectValue />
           </SelectTrigger>
@@ -279,27 +446,10 @@ export default function MindReader() {
           </SelectContent>
         </Select>
 
-        <Button
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2"
-          data-testid="upload-file-button"
-        >
-          <Upload className="h-4 w-4" />
-          Upload
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".txt,.pdf,.doc,.docx"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-
-        {!isAnalyzing ? (
+        {!currentTab.isAnalyzing ? (
           <Button
             onClick={startAnalysis}
-            disabled={!getTextToAnalyze().trim()}
+            disabled={!currentTab.inputText.trim()}
             data-testid="start-analysis-button"
           >
             <Play className="h-4 w-4 mr-2" />
@@ -316,7 +466,7 @@ export default function MindReader() {
           </Button>
         )}
 
-        {analysisResult && (
+        {currentTab.analysisResult && (
           <Button
             onClick={downloadResults}
             variant="outline"
@@ -327,9 +477,9 @@ export default function MindReader() {
           </Button>
         )}
 
-        {progressMessage && (
+        {currentTab.progressMessage && (
           <div className="text-sm text-gray-600 ml-auto">
-            {progressMessage}
+            {currentTab.progressMessage}
           </div>
         )}
       </div>
@@ -339,32 +489,35 @@ export default function MindReader() {
         {/* Left Panel - Text Input */}
         <div className="w-1/3 border-r flex flex-col">
           <div className="p-4 flex-1 flex flex-col">
-            <Textarea
-              placeholder="Paste or type your text here..."
-              value={inputText}
-              onChange={(e) => handleTextInput(e.target.value)}
-              className="flex-1 text-sm resize-none"
-              data-testid="text-input"
+            <DragDropTextarea
+              value={currentTab.inputText}
+              onChange={(text) => handleTextInput(text, activeTab)}
+              placeholder="Enter your text here or drag and drop TXT, PDF, or Word files to analyze..."
+              className="flex-1 text-sm"
+              rows={25}
+              onFileUpload={async (file) => {
+                console.log(`File uploaded to ${activeTab}:`, file.name);
+              }}
             />
             
-            {inputText && (
+            {currentTab.inputText && (
               <div className="text-sm text-gray-600 mt-2">
-                Word count: {TextChunkingService.getWordCount(inputText)}
+                Word count: {TextChunkingService.getWordCount(currentTab.inputText)}
               </div>
             )}
 
             {/* Chunking Section */}
-            {showChunks && (
+            {currentTab.showChunks && (
               <div className="mt-4 max-h-48 overflow-y-auto">
                 <h3 className="text-sm font-medium mb-2">Text Chunks (Select which to analyze)</h3>
                 <div className="space-y-2">
-                  {chunks.map((chunk) => (
+                  {currentTab.chunks.map((chunk) => (
                     <div
                       key={chunk.id}
                       className={`p-2 border rounded cursor-pointer transition-colors ${
                         chunk.selected ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
                       }`}
-                      onClick={() => toggleChunk(chunk.id)}
+                      onClick={() => toggleChunk(chunk.id, activeTab)}
                     >
                       <div className="flex justify-between items-center mb-1">
                         <Badge variant={chunk.selected ? "default" : "secondary"} className="text-xs">
@@ -386,12 +539,12 @@ export default function MindReader() {
         <div className="w-2/3 flex flex-col">
           <div className="p-4 flex-1 overflow-y-auto">
             {/* Progress */}
-            {isAnalyzing && (
+            {currentTab.isAnalyzing && (
               <div className="mb-4 p-4 bg-blue-50 rounded">
                 <div className="text-sm font-medium mb-2">Analysis Progress</div>
-                <div className="text-sm text-gray-600 mb-2">{progressMessage}</div>
+                <div className="text-sm text-gray-600 mb-2">{currentTab.progressMessage}</div>
                 <div className="max-h-32 overflow-y-auto bg-white p-2 rounded text-xs space-y-1">
-                  {streamingMessages.map((message, index) => (
+                  {currentTab.streamingMessages.map((message, index) => (
                     <div key={index} className="text-gray-600">
                       {message}
                     </div>
@@ -401,29 +554,29 @@ export default function MindReader() {
             )}
 
             {/* Results */}
-            {analysisResult && (
+            {currentTab.analysisResult && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-medium">Analysis Results</h3>
                   <Badge variant="outline" className="text-lg px-3 py-1">
-                    {analysisResult.finalScore}/100
+                    {currentTab.analysisResult.finalScore}/100
                   </Badge>
                 </div>
 
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-medium mb-2">Summary</h4>
-                    <p className="text-sm text-gray-600">{analysisResult.summary}</p>
+                    <p className="text-sm text-gray-600">{currentTab.analysisResult.summary}</p>
                   </div>
                   <div>
                     <h4 className="font-medium mb-2">Category</h4>
-                    <Badge>{analysisResult.category}</Badge>
+                    <Badge>{currentTab.analysisResult.category}</Badge>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-medium">Question Responses</h4>
-                  {analysisResult.responses.map((response, index) => (
+                  {currentTab.analysisResult.responses.map((response, index) => (
                     <div key={index} className="bg-white p-3 rounded border space-y-2">
                       <div className="flex justify-between items-start">
                         <h5 className="font-medium text-sm flex-1 pr-4">
@@ -441,7 +594,7 @@ export default function MindReader() {
             )}
 
             {/* Empty state when no analysis */}
-            {!isAnalyzing && !analysisResult && (
+            {!currentTab.isAnalyzing && !currentTab.analysisResult && (
               <div className="flex items-center justify-center h-full text-gray-400">
                 <div className="text-center">
                   <div className="text-lg mb-2">Output Stream</div>
