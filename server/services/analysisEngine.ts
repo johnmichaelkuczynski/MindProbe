@@ -1,4 +1,6 @@
 import { LLMService, LLMProvider } from './llmService';
+import fs from 'fs';
+import path from 'path';
 
 export type AnalysisType = 
   | 'cognitive' 
@@ -23,9 +25,22 @@ export interface AnalysisResponse {
 
 export class AnalysisEngine {
   private llmService: LLMService;
+  private completeInstructions: string;
 
   constructor() {
     this.llmService = new LLMService();
+    // Load the complete instructions that must be sent with every LLM request
+    this.completeInstructions = this.loadCompleteInstructions();
+  }
+
+  private loadCompleteInstructions(): string {
+    try {
+      const instructionsPath = path.join(process.cwd(), 'complete_instructions.txt');
+      return fs.readFileSync(instructionsPath, 'utf8');
+    } catch (error) {
+      console.error('Failed to load complete instructions:', error);
+      return '';
+    }
   }
 
   getQuestions(analysisType: AnalysisType): AnalysisQuestion[] {
@@ -78,7 +93,9 @@ export class AnalysisEngine {
   }
 
   private async *generateSummary(text: string, provider: LLMProvider): AsyncGenerator<{ type: 'summary'; data: any }> {
-    const prompt = `Summarize the following text and categorize it. Provide:
+    const prompt = `${this.completeInstructions}
+
+TASK: Summarize the following text and categorize it. Provide:
 1. Category (e.g., Academic Essay, Personal Writing, Technical Document, etc.)
 2. Summary (2-3 sentences)
 3. Length (character and word count)
@@ -114,7 +131,9 @@ Text: ${text}`;
     provider: LLMProvider
   ): AsyncGenerator<{ type: 'question'; data: any }> {
     const contextPrompt = additionalContext ? `Additional context: ${additionalContext}\n\n` : '';
-    const prompt = `${contextPrompt}Answer this question in connection with this text: ${question.question}
+    const prompt = `${this.completeInstructions}
+
+${contextPrompt}Answer this question in connection with this text: ${question.question}
 
 Text: ${text}
 
