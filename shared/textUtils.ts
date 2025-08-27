@@ -44,7 +44,7 @@ export class TextChunkingService {
         wordCount: chunkWords.length,
         startIndex: startWordIndex,
         endIndex: endWordIndex,
-        selected: false
+        selected: chunks.length === 0 // Select first chunk by default
       });
 
       // Move start index for next chunk, accounting for overlap

@@ -127,6 +127,22 @@ export default function MindReader() {
     }
   };
 
+  const selectAllChunks = (tabId: 'tab1' | 'tab2' = activeTab) => {
+    if (tabId === 'tab1') {
+      setTab1Chunks(tab1Chunks.map(chunk => ({ ...chunk, selected: true })));
+    } else {
+      setTab2Chunks(tab2Chunks.map(chunk => ({ ...chunk, selected: true })));
+    }
+  };
+
+  const deselectAllChunks = (tabId: 'tab1' | 'tab2' = activeTab) => {
+    if (tabId === 'tab1') {
+      setTab1Chunks(tab1Chunks.map(chunk => ({ ...chunk, selected: false })));
+    } else {
+      setTab2Chunks(tab2Chunks.map(chunk => ({ ...chunk, selected: false })));
+    }
+  };
+
   const getTextToAnalyze = (tabId: 'tab1' | 'tab2' = activeTab) => {
     const tabData = tabId === 'tab1' ? 
       { showChunks: tab1ShowChunks, chunks: tab1Chunks, inputText: tab1InputText } :
@@ -508,24 +524,51 @@ export default function MindReader() {
 
             {/* Chunking Section */}
             {currentTab.showChunks && (
-              <div className="mt-4 max-h-48 overflow-y-auto">
-                <h3 className="text-sm font-medium mb-2">Text Chunks (Select which to analyze)</h3>
+              <div className="mt-4 max-h-64 overflow-y-auto border rounded p-3 bg-amber-50">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-medium text-amber-800">
+                    Text Chunks ({currentTab.chunks.length} chunks, {currentTab.chunks.filter(c => c.selected).length} selected)
+                  </h3>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => selectAllChunks(activeTab)}
+                      className="text-xs h-6 px-2"
+                      data-testid="button-select-all-chunks"
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => deselectAllChunks(activeTab)}
+                      className="text-xs h-6 px-2"
+                      data-testid="button-deselect-all-chunks"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-xs text-amber-700 mb-3 p-2 bg-amber-100 rounded">
+                  ⚠️ Text is longer than 1000 words. Select which chunks to analyze.
+                </div>
                 <div className="space-y-2">
                   {currentTab.chunks.map((chunk) => (
                     <div
                       key={chunk.id}
                       className={`p-2 border rounded cursor-pointer transition-colors ${
-                        chunk.selected ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
+                        chunk.selected ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-gray-200'
                       }`}
                       onClick={() => toggleChunk(chunk.id, activeTab)}
                     >
                       <div className="flex justify-between items-center mb-1">
                         <Badge variant={chunk.selected ? "default" : "secondary"} className="text-xs">
-                          Chunk {chunk.id.split('-')[1]} ({chunk.wordCount} words)
+                          {chunk.selected ? '✓ ' : '○ '}Chunk {parseInt(chunk.id.split('-')[1]) + 1} ({chunk.wordCount} words)
                         </Badge>
                       </div>
                       <p className="text-xs text-gray-600 line-clamp-2">
-                        {chunk.text.substring(0, 100)}...
+                        {chunk.text.substring(0, 150)}...
                       </p>
                     </div>
                   ))}
