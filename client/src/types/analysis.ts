@@ -6,10 +6,27 @@ export type AnalysisType =
   | 'psychopathological' 
   | 'comprehensive-psychopathological';
 
+export type AdvancedAnalysisType = 
+  | 'advanced-cognitive' 
+  | 'advanced-comprehensive-cognitive' 
+  | 'advanced-psychological' 
+  | 'advanced-comprehensive-psychological' 
+  | 'advanced-psychopathological' 
+  | 'advanced-comprehensive-psychopathological';
+
+export type AllAnalysisTypes = AnalysisType | AdvancedAnalysisType;
+
 export type LLMProvider = "zhi1" | "zhi2" | "zhi3" | "zhi4";
 
 export interface AnalysisConfig {
   analysisType: AnalysisType;
+  llmProvider: LLMProvider;
+  inputText: string;
+  additionalContext?: string;
+}
+
+export interface AdvancedAnalysisConfig {
+  analysisType: AdvancedAnalysisType;
   llmProvider: LLMProvider;
   inputText: string;
   additionalContext?: string;

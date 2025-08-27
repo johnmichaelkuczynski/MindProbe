@@ -5,10 +5,12 @@ import { insertAnalysisSchema, insertDialogueSchema } from "@shared/schema";
 import { LLMService, LLMProvider } from "./services/llmService";
 import { FileProcessor, upload } from "./services/fileProcessor";
 import { AnalysisEngine, AnalysisType } from "./services/analysisEngine";
+import { AdvancedAnalysisEngine } from "./services/advancedAnalysisEngine";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const llmService = new LLMService();
   const analysisEngine = new AnalysisEngine();
+  const advancedAnalysisEngine = new AdvancedAnalysisEngine();
 
   // File upload endpoint
   app.post("/api/upload", upload.single('file'), async (req: any, res) => {
@@ -251,6 +253,75 @@ User message: ${message}`;
     } catch (error) {
       console.error("Regenerate error:", error);
       res.status(500).json({ error: "Failed to regenerate analysis" });
+    }
+  });
+
+  // Advanced Analysis Routes
+  app.post("/api/advanced-analysis/start", async (req, res) => {
+    try {
+      const { analysisType, llmProvider, inputText, additionalContext } = req.body;
+
+      // Create analysis record with advanced type
+      const analysis = await storage.createAnalysis({
+        analysisType: analysisType, // Store as string in existing table
+        llmProvider,
+        inputText,
+        additionalContext
+      });
+
+      res.json({
+        success: true,
+        analysisId: analysis.id
+      });
+    } catch (error) {
+      console.error("Advanced analysis start error:", error);
+      res.status(500).json({ error: "Failed to start advanced analysis" });
+    }
+  });
+
+  // Stream advanced analysis results
+  app.get("/api/advanced-analysis/:id/stream", async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+      const analysis = await storage.getAnalysis(id);
+      if (!analysis) {
+        return res.status(404).json({ error: "Analysis not found" });
+      }
+
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+
+      const sendEvent = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // Process advanced analysis
+      await advancedAnalysisEngine.processAdvancedAnalysis(
+        analysis.analysisType as any,
+        analysis.llmProvider,
+        analysis.inputText,
+        analysis.additionalContext || undefined,
+        (event) => {
+          sendEvent(event);
+        }
+      );
+
+      // Mark analysis as complete
+      await storage.updateAnalysisResults(id, []);
+      sendEvent({ type: 'complete', data: { message: 'Analysis completed' } });
+      
+      res.end();
+    } catch (error) {
+      console.error("Advanced analysis stream error:", error);
+      const sendEvent = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+      sendEvent({ type: 'error', data: { error: error instanceof Error ? error.message : 'Unknown error' } });
+      res.end();
     }
   });
 
