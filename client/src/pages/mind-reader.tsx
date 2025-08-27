@@ -225,7 +225,7 @@ export default function MindReader() {
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-gray-900 flex items-center justify-center gap-3">
             <Brain className="h-10 w-10 text-blue-600" />
-            Mind Reader
+            Tab 2
           </h1>
           <p className="text-lg text-gray-600">
             Advanced Cognitive, Psychological & Psychopathological Analysis

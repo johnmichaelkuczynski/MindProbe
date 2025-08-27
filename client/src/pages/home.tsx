@@ -216,7 +216,7 @@ export default function Home() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
               <Brain className="text-primary-blue text-2xl h-8 w-8" />
-              <h1 className="text-2xl font-bold text-text-primary">Mind Reader</h1>
+              <h1 className="text-2xl font-bold text-text-primary">Tab 1</h1>
               <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                 Cognitive Profiler
               </span>

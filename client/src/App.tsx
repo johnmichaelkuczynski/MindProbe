@@ -23,7 +23,7 @@ function Navigation() {
               data-testid="nav-home"
             >
               <HomeIcon className="h-4 w-4" />
-              <span>Super Profiler</span>
+              <span>Tab 1</span>
             </Button>
           </Link>
           <Link href="/mind-reader">
@@ -33,7 +33,7 @@ function Navigation() {
               data-testid="nav-mind-reader"
             >
               <Brain className="h-4 w-4" />
-              <span>Mind Reader</span>
+              <span>Tab 2</span>
             </Button>
           </Link>
         </nav>
