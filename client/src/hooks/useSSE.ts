@@ -39,7 +39,11 @@ export function useSSE<T>(url: string | null, onMessage?: (data: T) => void) {
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
       setIsConnected(false);
-      setError('Connection lost');
+      
+      // Only set error if it's not a normal connection close
+      if (eventSource.readyState !== EventSource.CLOSED) {
+        setError('Connection lost');
+      }
     };
 
     return () => {

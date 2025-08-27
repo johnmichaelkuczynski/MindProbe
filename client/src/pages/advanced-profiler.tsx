@@ -309,8 +309,8 @@ export default function AdvancedProfiler() {
       )}
 
       {/* Phase Results */}
-      {phases.map((phase) => (
-        <Card key={phase.phase}>
+      {phases.map((phase, phaseIndex) => (
+        <Card key={`phase-${phase.phase}-${phaseIndex}`}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{getPhaseTitle(phase.phase)}</CardTitle>
@@ -321,18 +321,30 @@ export default function AdvancedProfiler() {
             </div>
           </CardHeader>
           <CardContent>
-            {phase.responses.map((response: any, index: number) => (
-              <div key={index} className="space-y-4">
+            {phase.responses && phase.responses.map((response: any, index: number) => (
+              <div key={`response-${phase.phase}-${index}`} className="space-y-4">
                 <div className="bg-muted p-4 rounded-lg">
                   <pre className="whitespace-pre-wrap text-sm">
-                    {response.content}
+                    {response.content || JSON.stringify(response, null, 2)}
                   </pre>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Generated at {new Date(response.timestamp).toLocaleString()}
+                  Generated at {new Date(response.timestamp || Date.now()).toLocaleString()}
                 </p>
               </div>
             ))}
+            {phase.questions && (
+              <div className="mt-4">
+                <h4 className="font-medium mb-2">Analysis Questions ({phase.questions.length})</h4>
+                <div className="grid gap-2">
+                  {phase.questions.map((q: any, qIndex: number) => (
+                    <div key={`question-${phase.phase}-${qIndex}`} className="text-sm p-2 bg-blue-50 rounded">
+                      <span className="font-medium">{q.category}:</span> {q.question}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}
