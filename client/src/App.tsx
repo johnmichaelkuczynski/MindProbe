@@ -47,7 +47,7 @@ function Router() {
     <>
       <Navigation />
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={MindReader} />
         <Route path="/mind-reader" component={MindReader} />
         <Route component={NotFound} />
       </Switch>

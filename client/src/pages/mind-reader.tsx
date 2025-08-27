@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,7 +28,10 @@ interface AnalysisResult {
 
 export default function MindReader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'tab1' | 'tab2'>('tab1');
+  const [location] = useLocation();
+  
+  // Determine which tab we're on based on the route
+  const activeTab: 'tab1' | 'tab2' = location === "/" ? 'tab1' : 'tab2';
   
   // Tab 1 state
   const [tab1InputText, setTab1InputText] = useState("");
@@ -384,37 +388,21 @@ export default function MindReader() {
       {/* Header */}
       <div className="bg-white border-b">
         <div className="px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Mind Reader - Cognitive Analysis Platform
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Advanced AI-powered text analysis with multiple LLM providers
-          </p>
-          
-          {/* Tab Navigation */}
-          <div className="flex mt-4 space-x-1">
-            <button
-              onClick={() => setActiveTab('tab1')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'tab1'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-              data-testid="button-tab1"
-            >
-              Tab 1
-            </button>
-            <button
-              onClick={() => setActiveTab('tab2')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'tab2'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-              data-testid="button-tab2"
-            >
-              Tab 2
-            </button>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Mind Reader - Cognitive Analysis Platform
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Advanced AI-powered text analysis with multiple LLM providers
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Current Tab:</span>
+              <Badge variant={activeTab === 'tab1' ? 'default' : 'secondary'}>
+                {activeTab === 'tab1' ? 'Tab 1' : 'Tab 2'}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
