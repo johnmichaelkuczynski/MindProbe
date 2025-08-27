@@ -57,7 +57,7 @@ export default function AdvancedProfiler() {
     needsChunking,
     selectedChunks: selectedChunks.length,
     textChunksLength: textChunks.length,
-    buttonDisabled: isAnalyzing || !formData.inputText.trim() || (needsChunking && selectedChunks.length === 0)
+    buttonDisabled: isAnalyzing || !formData.inputText.trim()
   });
   
   console.log('Chunking interface should show:', needsChunking && textChunks.length > 0);
@@ -199,9 +199,9 @@ export default function AdvancedProfiler() {
       return;
     }
     
+    // For chunking, if no chunks selected, use all chunks
     if (needsChunking && selectedChunks.length === 0) {
-      setError('Please select at least one chunk to analyze');
-      return;
+      setSelectedChunks(textChunks.map((_, index) => index));
     }
     
     // Prepare text for analysis - either full text or selected chunks
@@ -426,12 +426,15 @@ ${phase.responses?.[0]?.content || 'No response'}
               </Card>
             )}
 
-            {/* Show warning if chunking is needed but no chunks selected */}
-            {needsChunking && textChunks.length > 0 && selectedChunks.length === 0 && (
-              <Alert className="border-red-500 bg-red-50">
-                <AlertCircle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-800 font-medium">
-                  Please select at least one chunk above to enable the Start Analysis button.
+            {/* Show info about chunking */}
+            {needsChunking && textChunks.length > 0 && (
+              <Alert className="border-blue-500 bg-blue-50">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  {selectedChunks.length === 0 
+                    ? "No chunks selected - will analyze all chunks when you start" 
+                    : `${selectedChunks.length} of ${textChunks.length} chunks selected for analysis`
+                  }
                 </AlertDescription>
               </Alert>
             )}
@@ -461,8 +464,7 @@ ${phase.responses?.[0]?.content || 'No response'}
               onClick={handleStartAnalysis}
               disabled={
                 isAnalyzing || 
-                !formData.inputText.trim() || 
-                (needsChunking && selectedChunks.length === 0)
+                !formData.inputText.trim()
               }
               className="flex-1"
               size="lg"
