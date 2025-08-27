@@ -5,10 +5,12 @@ import { insertAnalysisSchema, insertDialogueSchema } from "@shared/schema";
 import { LLMService, LLMProvider } from "./services/llmService";
 import { FileProcessor, upload } from "./services/fileProcessor";
 import { AnalysisEngine, AnalysisType } from "./services/analysisEngine";
+import { MindReaderService, AnalysisMode } from "./services/mindReaderService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const llmService = new LLMService();
   const analysisEngine = new AnalysisEngine();
+  const mindReaderService = new MindReaderService();
 
   // File upload endpoint
   app.post("/api/upload", upload.single('file'), async (req: any, res) => {
@@ -251,6 +253,50 @@ User message: ${message}`;
     } catch (error) {
       console.error("Regenerate error:", error);
       res.status(500).json({ error: "Failed to regenerate analysis" });
+    }
+  });
+
+  // Mind Reader analysis endpoint
+  app.post("/api/mind-reader/analyze", async (req, res) => {
+    try {
+      const { text, mode, llmProvider } = req.body;
+
+      if (!text || !mode || !llmProvider) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      // Set up Server-Sent Events
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      });
+
+      try {
+        const result = await mindReaderService.analyzeText(
+          text,
+          mode as AnalysisMode,
+          llmProvider as any,
+          (message: string) => {
+            res.write(`data: ${JSON.stringify({ type: 'progress', message })}\n\n`);
+          }
+        );
+
+        // Send final result
+        res.write(`data: ${JSON.stringify({ type: 'result', data: result })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'complete' })}\n\n`);
+        
+      } catch (analysisError) {
+        console.error("Mind Reader analysis error:", analysisError);
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Analysis failed' })}\n\n`);
+      }
+
+      res.end();
+    } catch (error) {
+      console.error("Mind Reader endpoint error:", error);
+      res.status(500).json({ error: "Failed to start analysis" });
     }
   });
 
