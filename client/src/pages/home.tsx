@@ -8,7 +8,7 @@ import { ChunkSelector } from "@/components/ChunkSelector";
 import { AnalysisType, LLMProvider } from "@/types/analysis";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, HelpCircle, Settings, Plus } from "lucide-react";
+import { Brain, HelpCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextChunkingService, TextChunk } from "@shared/textUtils";
 
@@ -37,27 +37,7 @@ export default function Home() {
     isUploading,
   } = useAnalysis();
 
-  const totalQuestions = 24; // Updated to include new pseudo-intellectual detection questions
-
-  const handleNewAnalysis = () => {
-    // Clear all text inputs
-    setInputText("");
-    setAdditionalContext("");
-    
-    // Clear analysis state
-    setIsAnalyzing(false);
-    setProgress(0);
-    setQuestionsProcessed(0);
-    setCurrentPhase("Ready");
-    
-    // Clear chunks and modals
-    setTextChunks([]);
-    setShowChunkSelector(false);
-    
-    // Force a complete page refresh to clear all analysis state and results
-    // This ensures the RealTimeResults component shows a clean empty state
-    window.location.reload();
-  };
+  const totalQuestions = 18; // This would vary based on analysis type
 
   const handleStartAnalysis = async () => {
     if (!inputText.trim()) {
@@ -236,22 +216,12 @@ export default function Home() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
               <Brain className="text-primary-blue text-2xl h-8 w-8" />
-              <h1 className="text-2xl font-bold text-text-primary">Super Profiler</h1>
+              <h1 className="text-2xl font-bold text-text-primary">Mind Reader</h1>
               <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                 Cognitive Profiler
               </span>
             </div>
             <div className="flex items-center space-x-4">
-              <Button 
-                onClick={handleNewAnalysis}
-                variant="outline" 
-                size="sm" 
-                className="text-primary-blue border-primary-blue hover:bg-primary-blue hover:text-white"
-                data-testid="button-new-analysis"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Analysis
-              </Button>
               <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
                 <HelpCircle className="h-5 w-5" />
               </Button>

@@ -1,20 +1,10 @@
 # Overview
 
-Super Profiler is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis types: cognitive, comprehensive cognitive, psychological, comprehensive psychological, psychopathological, and comprehensive psychopathological. The application functions as a passthrough system that relays user input to LLM services and returns unfiltered responses for professional assessment purposes.
+Mind Reader is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis types: cognitive, comprehensive cognitive, psychological, comprehensive psychological, psychopathological, and comprehensive psychopathological. The application functions as a passthrough system that relays user input to LLM services and returns unfiltered responses for professional assessment purposes.
 
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
-
-# Recent Changes
-
-## Enhanced Intelligence Assessment Protocol (January 26, 2025)
-- Added 6 new pseudo-intellectual detection questions to cognitive analysis
-- Updated total question count from 18 to 24 for cognitive assessments
-- Enhanced LLM prompts with pseudo-intellectual detection protocols
-- Questions now specifically detect undefined jargon, free variables, and meaningless placeholder terms
-- Added capability to identify content that masquerades as intelligent through presumption rather than substance
-- **CRITICAL FIX**: Strengthened detection protocol with explicit scoring penalties (20-40/100) for pseudo-intellectual markers after initial implementation failed to properly identify jargon-heavy content
 
 # System Architecture
 
