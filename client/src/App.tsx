@@ -4,16 +4,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
-import AdvancedProfiler from "@/pages/advanced-profiler";
-import SixProtocols from "@/pages/six-protocols";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/advanced" component={AdvancedProfiler} />
-      <Route path="/protocols" component={SixProtocols} />
       <Route component={NotFound} />
     </Switch>
   );

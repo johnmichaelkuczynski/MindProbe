@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Brain, HelpCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextChunkingService, TextChunk } from "@shared/textUtils";
-import { Navigation } from "@/components/Navigation";
 
 export default function Home() {
   const [selectedAnalysisType, setSelectedAnalysisType] = useState<AnalysisType>('cognitive');
@@ -210,27 +209,43 @@ export default function Home() {
     : "--";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <Navigation />
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="text-center space-y-2">
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Original 6-Mode System: Cognitive, psychological, and psychopathological profiler using advanced AI analysis
-          </p>
-        </div>
-        
-        {/* Chunk Selector Modal */}
-        {showChunkSelector && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <ChunkSelector
-              chunks={textChunks}
-              onChunksChange={setTextChunks}
-              onProceed={handleChunksProceed}
-              onCancel={handleChunksCancel}
-            />
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="bg-white border-b border-border-light">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <Brain className="text-primary-blue text-2xl h-8 w-8" />
+              <h1 className="text-2xl font-bold text-text-primary">Mind Reader</h1>
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                Cognitive Profiler
+              </span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
+                <HelpCircle className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
-        )}
-        
+        </div>
+      </header>
+
+      {/* Chunk Selector Modal */}
+      {showChunkSelector && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <ChunkSelector
+            chunks={textChunks}
+            onChunksChange={setTextChunks}
+            onProceed={handleChunksProceed}
+            onCancel={handleChunksCancel}
+          />
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Analysis Selector */}
         <div className="mb-8">
           <AnalysisSelector

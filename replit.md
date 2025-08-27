@@ -1,6 +1,6 @@
 # Overview
 
-Mind Reader is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis modes: Cognitive (Short/Long), Psychological (Short/Long), and Psychopathological (Short/Long). The application functions as a pure passthrough system with no filtering or hardcoded logic, relaying user input directly to LLM services and returning unfiltered responses. Key features include user-selectable text chunking for documents over 300 words (testing threshold, normally 1000), simplified ZHI provider naming system (ZHI 1, ZHI 2, etc.), and download functionality for evaluations as TXT files.
+Mind Reader is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis types: cognitive, comprehensive cognitive, psychological, comprehensive psychological, psychopathological, and comprehensive psychopathological. The application functions as a passthrough system that relays user input to LLM services and returns unfiltered responses for professional assessment purposes.
 
 # User Preferences
 
@@ -24,36 +24,28 @@ Preferred communication style: Simple, everyday language.
 - **Storage**: Configurable storage interface with in-memory implementation for development
 
 ## Core Services
-- **LLM Service**: Abstraction layer supporting multiple AI providers with simplified ZHI naming system:
-  - ZHI 1: Primary analysis engine using OpenAI GPT models
-  - ZHI 2: Claude-based reasoning using Anthropic's claude-sonnet-4-20250514
-  - ZHI 3: Specialized analysis capabilities using DeepSeek
-  - ZHI 4: Research-focused analysis using Perplexity
-- **File Processor**: Handles text extraction from uploaded documents (PDF, Word, TXT files)
-- **Analysis Engine**: Pure passthrough system with no filtering, manages question sets for six analysis modes
-- **Chunk Selection**: User-controlled chunking interface for documents over 1000 words
+- **LLM Service**: Abstraction layer supporting multiple AI providers (OpenAI, Anthropic, DeepSeek, Perplexity) referenced as ZHI 1-4
+- **File Processor**: Handles text extraction from uploaded documents using pdf-parse and mammoth libraries
+- **Analysis Engine**: Manages question sets and coordinates streaming responses for real-time feedback
 
 ## Data Flow Design
-- **Input Processing**: Supports text input, file uploads (PDF/DOC/TXT), and paste functionality
-- **Chunk Selection**: Automatic chunking for 1000+ word texts with user-selectable chunks for analysis
-- **Pure Passthrough**: No filtering, calibration, or hardcoded logic - direct LLM evaluation
-- **Analysis Modes**: Six distinct modes with Short (Phase 1 only) and Long (4-phase) variants
-- **Real-time Streaming**: Responses displayed immediately as they arrive via Server-Sent Events
-- **Download Capability**: Results downloadable as TXT files with complete analysis data
+- **Input Processing**: Supports both text input and file uploads with validation
+- **Batch Processing**: Questions sent to LLMs in groups of 5 with 10-second delays between batches
+- **Real-time Streaming**: Responses displayed immediately as they arrive via SSE
+- **Dialogue System**: Post-analysis conversation capability with regeneration options based on user feedback
 
 ## Security and Validation
-- **File Upload Restrictions**: 10MB limit with MIME type and extension validation for PDF, DOC, DOCX, TXT
-- **Input Validation**: Zod schemas for all data structures and analysis configurations
+- **File Upload Restrictions**: 10MB limit with MIME type and extension validation
+- **Input Validation**: Zod schemas for all data structures
 - **Error Handling**: Comprehensive error boundaries and user feedback mechanisms
-- **Pure Passthrough Design**: No data manipulation, filtering, or hardcoded scoring adjustments
 
 # External Dependencies
 
 ## AI/LLM Services
-- **ZHI 1**: OpenAI API for primary analysis engine
-- **ZHI 2**: Anthropic Claude using claude-sonnet-4-20250514 for reasoning
-- **ZHI 3**: DeepSeek for specialized profiling
-- **ZHI 4**: Perplexity for research-focused analysis
+- **OpenAI API**: Primary analysis engine (referenced as ZHI 1)
+- **Anthropic Claude**: Alternative reasoning model (referenced as ZHI 2) using claude-sonnet-4-20250514
+- **DeepSeek**: Specialized profiling engine (referenced as ZHI 3)
+- **Perplexity**: Research-focused model (referenced as ZHI 4)
 
 ## Database and Storage
 - **PostgreSQL**: Primary data storage via Neon Database serverless
