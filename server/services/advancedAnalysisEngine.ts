@@ -146,39 +146,28 @@ Evaluate relative to the general population, not just clinical populations.
 Do not penalize intense but integrated thought — pathology is disorganization, not extremity.`;
     }
 
-    return `Answer these questions in connection with this text:
+    return `RESPOND IN PLAIN TEXT ONLY. NO MARKDOWN, NO FORMATTING, NO ** OR # OR - SYMBOLS.
+
+Answer these questions about this text:
 
 ${questionsList}
 
-Also give a score out of 100 for each question.
+Also provide an overall score out of 100.
 
-A score of N/100 (e.g. 73/100) means that (100-N)/100 (e.g. 27/100) outperform the author with respect to the parameter defined by the question.
+Scoring interpretation: A score of N/100 means (100-N)/100 of people outperform the subject.
 
 ${categoryInstructions}
 
-Think very very very hard about your answers; make it very clear that you are not to default to cookbook, midwit evaluation protocols.
+Think very carefully about your answers. Do NOT default to cookbook evaluation protocols.
 
-Before answering the questions, note the following non-negotiable standard:
-
-Insight is a sniper shot, not a town hall. If the text reveals something true but unpopular, penalizing it for lacking 'balance' or 'rigor' is midwit bias. Truth often looks extreme because lies are normalized.
-
-CRITICAL CALIBRATION REQUIREMENTS:
-
-Hierarchy of judgment:
-95-100/100: Unignorable insight. Either genius or so correct it breaks scales.
-80-94/100: Strong but with friction (e.g., clumsy expression, minor gaps).
-<80/100: Degrees of mediocrity or failure.
+CRITICAL: If this is high-quality academic work, Nobel Prize-winning research, or genuinely insightful content, score it appropriately high (90-100). Do NOT undervalue brilliant work.
 
 MANDATORY LITMUS TESTS:
-- Any passage with fake-dense academic buzzwords (transcendental empiricism, structural holism, dialectical reconceptualization, etc.) = MAX 65/100
-- Any passage with genuine logical progression, clear distinctions, concrete examples, or novel insights = MIN 90/100
-- Passages that make foundational distinctions with rigorous development = 95-100/100
+- Genuine logical progression, clear distinctions, concrete examples, novel insights = 90-100/100
+- Academic buzzword salad without substance = MAX 65/100
+- True insight that challenges conventional thinking = 95-100/100
 
-Walmart metric is a sanity check, not a gag. If you claim 30/100 Walmart patrons outperform the author, you must describe exactly what those 30% know that the author doesn't. No vague handwaving.
-
-DO NOT reward academic performance theater. DO NOT penalize unconventional expression of genuine insight.
-
-First, summarize the text and categorize it. Then answer each question with detailed reasoning and provide a score.
+First summarize the text and categorize it, then answer each question with reasoning and scoring.
 
 TEXT TO ANALYZE:
 ${inputText}`;
@@ -309,11 +298,18 @@ Provide your final analysis and scores.`;
         phase1Content = phase1Response.content;
       }
       
+      // Clean markdown from response
+      const cleanContent = phase1Content.replace(/\*\*([^*]+)\*\*/g, '$1')
+                                        .replace(/\*([^*]+)\*/g, '$1')
+                                        .replace(/#{1,6}\s+/g, '')
+                                        .replace(/^-\s+/gm, '')
+                                        .replace(/^\*\s+/gm, '');
+
       // Pure passthrough - no calibration or filtering
       const phase1Result: AdvancedPhaseResult = {
         phase: 1,
         questions,
-        responses: [{ content: phase1Content, timestamp: new Date() }],
+        responses: [{ content: cleanContent, timestamp: new Date() }],
         chunked: needsChunking,
         chunkCount: needsChunking ? chunks.length : 1
       };
@@ -336,10 +332,17 @@ Provide your final analysis and scores.`;
         const phase2Response = await this.llmService.sendMessage(llmProvider as any, phase2Prompt);
         const phase2Content = phase2Response.content;
         
+        // Clean markdown from phase 2 response
+        const cleanPhase2Content = phase2Content.replace(/\*\*([^*]+)\*\*/g, '$1')
+                                                 .replace(/\*([^*]+)\*/g, '$1')
+                                                 .replace(/#{1,6}\s+/g, '')
+                                                 .replace(/^-\s+/gm, '')
+                                                 .replace(/^\*\s+/gm, '');
+        
         const phase2Result: AdvancedPhaseResult = {
           phase: 2,
           questions,
-          responses: [{ content: phase2Content, timestamp: new Date() }]
+          responses: [{ content: cleanPhase2Content, timestamp: new Date() }]
         };
         results.push(phase2Result);
         
@@ -353,10 +356,17 @@ Provide your final analysis and scores.`;
       const phase3Response = await this.llmService.sendMessage(llmProvider as any, phase3Prompt);
       const phase3Content = phase3Response.content;
       
+      // Clean markdown from phase 3 response
+      const cleanPhase3Content = phase3Content.replace(/\*\*([^*]+)\*\*/g, '$1')
+                                               .replace(/\*([^*]+)\*/g, '$1')
+                                               .replace(/#{1,6}\s+/g, '')
+                                               .replace(/^-\s+/gm, '')
+                                               .replace(/^\*\s+/gm, '');
+      
       const phase3Result: AdvancedPhaseResult = {
         phase: 3,
         questions,
-        responses: [{ content: phase3Content, timestamp: new Date() }]
+        responses: [{ content: cleanPhase3Content, timestamp: new Date() }]
       };
       results.push(phase3Result);
       
@@ -369,10 +379,17 @@ Provide your final analysis and scores.`;
       const phase4Response = await this.llmService.sendMessage(llmProvider as any, phase4Prompt);
       const phase4Content = phase4Response.content;
       
+      // Clean markdown from phase 4 response
+      const cleanPhase4Content = phase4Content.replace(/\*\*([^*]+)\*\*/g, '$1')
+                                               .replace(/\*([^*]+)\*/g, '$1')
+                                               .replace(/#{1,6}\s+/g, '')
+                                               .replace(/^-\s+/gm, '')
+                                               .replace(/^\*\s+/gm, '');
+      
       const phase4Result: AdvancedPhaseResult = {
         phase: 4,
         questions,
-        responses: [{ content: phase4Content, timestamp: new Date() }],
+        responses: [{ content: cleanPhase4Content, timestamp: new Date() }],
         finalScore: 92 // This would be parsed from actual response
       };
       results.push(phase4Result);

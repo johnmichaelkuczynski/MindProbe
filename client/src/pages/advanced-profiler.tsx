@@ -41,32 +41,60 @@ export default function AdvancedProfiler() {
   const [currentPhase, setCurrentPhase] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [textChunks, setTextChunks] = useState<{text: string, index: number}[]>([]);
+  const [textChunks, setTextChunks] = useState<{text: string, index: number, wordCount: number}[]>([]);
   const [selectedChunks, setSelectedChunks] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if text needs chunking (over 1000 words)
-  const needsChunking = formData.inputText.split(' ').length > 1000;
+  const wordCount = formData.inputText.trim().split(/\s+/).filter(word => word.length > 0).length;
+  const needsChunking = wordCount > 1000;
 
-  // Generate chunks when text changes
+  // Generate chunks when text changes - split by sentences for better coherence
   const generateChunks = (text: string) => {
-    const words = text.split(' ');
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
     const chunks = [];
-    for (let i = 0; i < words.length; i += 1000) {
+    let currentChunk = '';
+    let chunkIndex = 0;
+    let wordCount = 0;
+    
+    for (const sentence of sentences) {
+      const sentenceWords = sentence.trim().split(/\s+/).filter(word => word.length > 0).length;
+      
+      // If adding this sentence would exceed 800 words, start a new chunk
+      if (wordCount + sentenceWords > 800 && currentChunk.length > 0) {
+        chunks.push({
+          text: currentChunk.trim(),
+          index: chunkIndex,
+          wordCount: wordCount
+        });
+        currentChunk = sentence.trim();
+        wordCount = sentenceWords;
+        chunkIndex++;
+      } else {
+        currentChunk += (currentChunk ? '. ' : '') + sentence.trim();
+        wordCount += sentenceWords;
+      }
+    }
+    
+    // Add the last chunk if it has content
+    if (currentChunk.trim().length > 0) {
       chunks.push({
-        text: words.slice(i, i + 1000).join(' '),
-        index: Math.floor(i / 1000)
+        text: currentChunk.trim(),
+        index: chunkIndex,
+        wordCount: wordCount
       });
     }
+    
     return chunks;
   };
 
   // Update chunks when input text changes
   const updateTextChunks = (text: string) => {
-    if (text.split(' ').length > 1000) {
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (words > 1000) {
       const chunks = generateChunks(text);
       setTextChunks(chunks);
-      setSelectedChunks([0]); // Select first chunk by default
+      setSelectedChunks([]); // Don't auto-select - force user to choose
     } else {
       setTextChunks([]);
       setSelectedChunks([]);
@@ -352,7 +380,7 @@ ${phase.responses?.[0]?.content || 'No response'}
                         onClick={() => handleChunkSelection(chunk.index)}
                         data-testid={`button-chunk-${chunk.index}`}
                       >
-                        Chunk {chunk.index + 1}
+                        Chunk {chunk.index + 1} ({chunk.wordCount} words)
                       </Button>
                     ))}
                   </div>
@@ -363,9 +391,11 @@ ${phase.responses?.[0]?.content || 'No response'}
                       <div className="max-h-32 overflow-y-auto bg-muted p-3 rounded text-sm">
                         {selectedChunks.map(index => (
                           <div key={index} className="mb-2">
-                            <Badge variant="secondary" className="mb-1">Chunk {index + 1}</Badge>
+                            <Badge variant="secondary" className="mb-1">
+                              Chunk {index + 1} ({textChunks[index]?.wordCount || 0} words)
+                            </Badge>
                             <p className="text-xs text-muted-foreground">
-                              {textChunks[index]?.text.substring(0, 100)}...
+                              {textChunks[index]?.text.substring(0, 150)}...
                             </p>
                           </div>
                         ))}
