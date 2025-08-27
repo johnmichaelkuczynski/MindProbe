@@ -6,11 +6,15 @@ import { LLMService, LLMProvider } from "./services/llmService";
 import { FileProcessor, upload } from "./services/fileProcessor";
 import { AnalysisEngine, AnalysisType } from "./services/analysisEngine";
 import { AdvancedAnalysisEngine } from "./services/advancedAnalysisEngine";
+import { SixProtocolsService } from "./services/sixProtocolsService";
+import { TextChunker } from './services/textChunker';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const llmService = new LLMService();
   const analysisEngine = new AnalysisEngine();
   const advancedAnalysisEngine = new AdvancedAnalysisEngine();
+  const sixProtocolsService = new SixProtocolsService();
+  const textChunker = new TextChunker();
 
   // File upload endpoint
   app.post("/api/upload", upload.single('file'), async (req: any, res) => {
@@ -311,7 +315,7 @@ User message: ${message}`;
       );
 
       // Mark analysis as complete
-      await storage.updateAnalysisResults(id, []);
+      await storage.updateAnalysisResults(id, [], "completed");
       sendEvent({ type: 'complete', data: { message: 'Analysis completed' } });
       
       res.end();
@@ -322,6 +326,113 @@ User message: ${message}`;
       };
       sendEvent({ type: 'error', data: { error: error instanceof Error ? error.message : 'Unknown error' } });
       res.end();
+    }
+  });
+
+  // Text chunking endpoint
+  app.post("/api/chunk-text", async (req, res) => {
+    try {
+      const { text, maxWords = 500 } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: "Text is required" });
+      }
+      
+      const chunks = textChunker.chunkText(text, maxWords);
+      res.json({ chunks });
+    } catch (error) {
+      console.error("Text chunking error:", error);
+      res.status(500).json({ error: "Failed to chunk text" });
+    }
+  });
+
+  // Six Protocols Routes
+  app.post("/api/six-protocols/start", async (req, res) => {
+    try {
+      const request = req.body;
+      const result = await sixProtocolsService.startAnalysis(request);
+      res.json(result);
+    } catch (error) {
+      console.error("Six protocols start error:", error);
+      res.status(500).json({ error: "Failed to start six protocols analysis" });
+    }
+  });
+
+  // Stream six protocols analysis results
+  app.get("/api/six-protocols/:id/stream", async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+
+      const sendEvent = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // Monitor analysis progress
+      const checkProgress = () => {
+        const analysis = sixProtocolsService.getAnalysis(id);
+        if (!analysis) {
+          sendEvent({ type: 'error', data: { message: 'Analysis not found' } });
+          res.end();
+          return;
+        }
+
+        // Send current phase
+        if (analysis.currentPhase) {
+          sendEvent({ type: 'phase', data: { phase: analysis.currentPhase } });
+        }
+
+        // Send questions and answers
+        analysis.phases.forEach(phase => {
+          phase.questions.forEach(question => {
+            if (question.complete) {
+              sendEvent({ 
+                type: 'question', 
+                data: {
+                  questionId: question.questionId,
+                  question: question.question,
+                  answer: question.answer,
+                  complete: question.complete
+                }
+              });
+            }
+          });
+
+          // Send phase completion
+          if (phase.endTime) {
+            sendEvent({
+              type: 'phase_complete',
+              data: {
+                phase: phase.phase,
+                finalScore: phase.finalScore
+              }
+            });
+          }
+        });
+
+        // Check if analysis is complete
+        if (analysis.status === 'completed') {
+          sendEvent({ type: 'complete', data: { analysisId: id } });
+          res.end();
+        } else if (analysis.status === 'error') {
+          sendEvent({ type: 'error', data: { message: analysis.error || 'Unknown error' } });
+          res.end();
+        } else {
+          // Continue monitoring
+          setTimeout(checkProgress, 1000);
+        }
+      };
+
+      // Start monitoring
+      checkProgress();
+
+    } catch (error) {
+      console.error("Six protocols stream error:", error);
+      res.status(500).json({ error: "Failed to setup six protocols stream" });
     }
   });
 

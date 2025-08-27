@@ -36,10 +36,25 @@ export function Navigation() {
                   </Badge>
                 </Button>
               </Link>
+              <Link href="/protocols">
+                <Button 
+                  variant={location === "/protocols" ? "default" : "ghost"}
+                  className="flex items-center gap-2"
+                  data-testid="nav-six-protocols"
+                >
+                  <Brain className="h-4 w-4" />
+                  Six Protocols
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    Pure Passthrough
+                  </Badge>
+                </Button>
+              </Link>
             </nav>
           </div>
           <div className="text-sm text-muted-foreground">
-            {location === "/" ? "Original 6-Mode System" : "Advanced 4-Phase Protocol"}
+            {location === "/" ? "Original 6-Mode System" : 
+             location === "/advanced" ? "Advanced 4-Phase Protocol" :
+             location === "/protocols" ? "Six Protocols Implementation" : ""}
           </div>
         </div>
       </div>

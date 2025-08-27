@@ -21,11 +21,17 @@ type ProtocolType =
 
 type LLMProvider = 'zhi1' | 'zhi2' | 'zhi3' | 'zhi4';
 
-interface ProtocolFormData {
+interface FormData {
   protocolType: ProtocolType;
   llmProvider: LLMProvider;
   inputText: string;
   additionalContext: string;
+}
+
+interface TextChunk {
+  index: number;
+  text: string;
+  wordCount: number;
 }
 
 interface PhaseResponse {
@@ -41,8 +47,8 @@ interface Phase {
   finalScore?: number;
 }
 
-export default function ProtocolSuite() {
-  const [formData, setFormData] = useState<ProtocolFormData>({
+export default function SixProtocols() {
+  const [formData, setFormData] = useState<FormData>({
     protocolType: 'cognitive-normal',
     llmProvider: 'zhi1',
     inputText: '',
@@ -54,7 +60,42 @@ export default function ProtocolSuite() {
   const [phases, setPhases] = useState<Phase[]>([]);
   const [currentPhase, setCurrentPhase] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [textChunks, setTextChunks] = useState<TextChunk[]>([]);
+  const [selectedChunks, setSelectedChunks] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if text needs chunking (over 300 words for testing, normally 1000)
+  const wordCount = formData.inputText.trim().split(/\s+/).filter(word => word.length > 0).length;
+  const needsChunking = wordCount > 300;
+
+  const updateTextChunks = async (text: string) => {
+    if (wordCount > 300) {
+      try {
+        const response = await fetch('/api/chunk-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, maxWords: 500 }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTextChunks(data.chunks);
+        }
+      } catch (error) {
+        console.error('Error chunking text:', error);
+      }
+    } else {
+      setTextChunks([]);
+      setSelectedChunks([]);
+    }
+  };
+
+  const handleChunkSelection = (chunkIndex: number) => {
+    setSelectedChunks(prev => 
+      prev.includes(chunkIndex) 
+        ? prev.filter(i => i !== chunkIndex)
+        : [...prev, chunkIndex]
+    );
+  };
 
   // File upload mutation
   const fileUploadMutation = useMutation({
@@ -72,6 +113,7 @@ export default function ProtocolSuite() {
     },
     onSuccess: (data) => {
       setFormData(prev => ({ ...prev, inputText: data.text }));
+      updateTextChunks(data.text);
     },
     onError: (error) => {
       setError(error instanceof Error ? error.message : 'Upload failed');
@@ -80,8 +122,8 @@ export default function ProtocolSuite() {
 
   // Start analysis mutation
   const startAnalysisMutation = useMutation({
-    mutationFn: async (data: ProtocolFormData) => {
-      const response = await fetch('/api/protocol-analysis/start', {
+    mutationFn: async (data: FormData & { selectedChunks?: number[], textChunks?: TextChunk[] }) => {
+      const response = await fetch('/api/six-protocols/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -105,7 +147,7 @@ export default function ProtocolSuite() {
   });
 
   const startSSEConnection = (analysisId: string) => {
-    const eventSource = new EventSource(`/api/protocol-analysis/${analysisId}/stream`);
+    const eventSource = new EventSource(`/api/six-protocols/${analysisId}/stream`);
     
     eventSource.onmessage = (event) => {
       try {
@@ -177,33 +219,57 @@ export default function ProtocolSuite() {
       return;
     }
 
-    startAnalysisMutation.mutate(formData);
+    // For chunking, if no chunks selected, use all chunks
+    if (needsChunking && selectedChunks.length === 0) {
+      setSelectedChunks(textChunks.map((_, index) => index));
+    }
+
+    // Prepare text for analysis - either full text or selected chunks
+    let analysisText = formData.inputText;
+    if (needsChunking && selectedChunks.length > 0) {
+      analysisText = selectedChunks.map(index => textChunks[index]?.text).join('\n\n');
+    }
+
+    startAnalysisMutation.mutate({
+      ...formData,
+      inputText: analysisText,
+      selectedChunks: needsChunking ? selectedChunks : undefined,
+      textChunks: needsChunking ? textChunks : undefined
+    });
   };
 
   const downloadResults = () => {
     if (phases.length === 0) return;
 
-    const results = phases.map(phase => {
-      let phaseContent = `=== PHASE ${phase.phase} ===\n\n`;
+    const protocolName = formData.protocolType.replace('-', ' ').toUpperCase();
+    const providerName = formData.llmProvider.toUpperCase();
+    
+    let results = `${protocolName} ANALYSIS - ${providerName}\n`;
+    results += `Generated: ${new Date().toISOString()}\n`;
+    results += `${'='.repeat(60)}\n\n`;
+
+    phases.forEach(phase => {
+      results += `PHASE ${phase.phase}\n`;
+      results += `${'='.repeat(20)}\n\n`;
       
       phase.responses.forEach(response => {
-        phaseContent += `Question: ${response.question}\n\n`;
-        phaseContent += `Answer: ${response.answer}\n\n`;
-        phaseContent += '---\n\n';
+        results += `Question: ${response.question}\n\n`;
+        results += `Answer: ${response.answer}\n\n`;
+        results += `${'-'.repeat(40)}\n\n`;
       });
       
       if (phase.finalScore) {
-        phaseContent += `Final Score: ${phase.finalScore}/100\n\n`;
+        results += `Final Score: ${phase.finalScore}/100\n\n`;
       }
       
-      return phaseContent;
-    }).join('\n');
+      results += `${'='.repeat(60)}\n\n`;
+    });
 
     const blob = new Blob([results], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `protocol-analysis-${Date.now()}.txt`;
+    a.download = `${protocolName.toLowerCase().replace(' ', '-')}-analysis-${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -237,9 +303,9 @@ export default function ProtocolSuite() {
       <Navigation />
       <div className="container mx-auto p-6 space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">Protocol Suite</h1>
+          <h1 className="text-3xl font-bold">Six Protocol Analysis</h1>
           <p className="text-muted-foreground">
-            Six protocol implementations: Cognitive, Psychological, and Psychopathological - each with Normal and Comprehensive modes
+            Cognitive, Psychological, and Psychopathological analysis - each with Normal and Comprehensive modes
           </p>
         </div>
 
@@ -333,11 +399,71 @@ export default function ProtocolSuite() {
                 placeholder="Enter the text you want to analyze using the protocol suite..."
                 value={formData.inputText}
                 onChange={(e) => {
-                  setFormData(prev => ({ ...prev, inputText: e.target.value }));
+                  const newText = e.target.value;
+                  setFormData(prev => ({ ...prev, inputText: newText }));
+                  updateTextChunks(newText);
                 }}
                 className="min-h-[200px]"
                 data-testid="textarea-input-text"
               />
+
+              {/* Chunk Selection Interface */}
+              {needsChunking && textChunks.length > 0 && (
+                <Card className="mt-4 border-2 border-blue-500 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle className="text-blue-800">⚠️ Chunk Selection Available</CardTitle>
+                    <CardDescription className="text-blue-700 font-medium">
+                      Your text is over 300 words ({wordCount} words). You can select specific chunks to analyze:
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex gap-2 flex-wrap">
+                      {textChunks.map((chunk) => (
+                        <Button
+                          key={chunk.index}
+                          variant={selectedChunks.includes(chunk.index) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleChunkSelection(chunk.index)}
+                          data-testid={`button-chunk-${chunk.index}`}
+                        >
+                          Chunk {chunk.index + 1} ({chunk.wordCount} words)
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    {selectedChunks.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Selected Chunks Preview:</Label>
+                        <div className="max-h-32 overflow-y-auto bg-muted p-3 rounded text-sm">
+                          {selectedChunks.map(index => (
+                            <div key={index} className="mb-2">
+                              <Badge variant="secondary" className="mb-1">
+                                Chunk {index + 1} ({textChunks[index]?.wordCount || 0} words)
+                              </Badge>
+                              <p className="text-xs text-muted-foreground">
+                                {textChunks[index]?.text.substring(0, 150)}...
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Show info about chunking */}
+              {needsChunking && textChunks.length > 0 && (
+                <Alert className="border-blue-500 bg-blue-50">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    {selectedChunks.length === 0 
+                      ? "No chunks selected - will analyze all chunks when you start" 
+                      : `${selectedChunks.length} of ${textChunks.length} chunks selected for analysis`
+                    }
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="additional-context">Additional Context (Optional)</Label>
@@ -404,7 +530,7 @@ export default function ProtocolSuite() {
                 {getPhaseTitle(currentPhase)} in Progress
               </CardTitle>
               <CardDescription>
-                Protocol suite is processing your text through multiple validation phases
+                Protocol analysis is processing your text through multiple validation phases
               </CardDescription>
             </CardHeader>
           </Card>
