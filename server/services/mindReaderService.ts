@@ -393,10 +393,10 @@ Do not penalize intense but integrated thought — pathology is disorganization,
 
   private getLLMName(provider: LLMProvider): string {
     const names = {
-      'zhi1': 'ZHI 1 (OpenAI)',
-      'zhi2': 'ZHI 2 (Anthropic)', 
-      'zhi3': 'ZHI 3 (DeepSeek)',
-      'zhi4': 'ZHI 4 (Perplexity)'
+      'zhi1': 'ZHI 1',
+      'zhi2': 'ZHI 2', 
+      'zhi3': 'ZHI 3',
+      'zhi4': 'ZHI 4'
     };
     return names[provider] || provider;
   }
@@ -405,7 +405,7 @@ Do not penalize intense but integrated thought — pathology is disorganization,
     try {
       switch (provider) {
         case 'zhi1': // OpenAI
-          onProgress?.('Processing with ZHI 1 (OpenAI GPT-4o)...');
+          onProgress?.('Processing with ZHI 1...');
           const openaiResponse = await this.openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [{ role: 'user', content: prompt }],
@@ -415,7 +415,7 @@ Do not penalize intense but integrated thought — pathology is disorganization,
           return openaiResponse.choices[0].message.content || '';
 
         case 'zhi2': // Anthropic
-          onProgress?.('Processing with ZHI 2 (Anthropic Claude)...');
+          onProgress?.('Processing with ZHI 2...');
           const anthropicResponse = await this.anthropic.messages.create({
             model: DEFAULT_MODEL_STR, // claude-sonnet-4-20250514
             max_tokens: 4000,
@@ -426,7 +426,7 @@ Do not penalize intense but integrated thought — pathology is disorganization,
           return anthropicResponse.content[0].type === 'text' ? anthropicResponse.content[0].text : '';
 
         case 'zhi3': // DeepSeek
-          onProgress?.('Processing with ZHI 3 (DeepSeek)...');
+          onProgress?.('Processing with ZHI 3...');
           const deepseekResponse = await fetch('https://api.deepseek.com/chat/completions', {
             method: 'POST',
             headers: {
@@ -449,7 +449,7 @@ Do not penalize intense but integrated thought — pathology is disorganization,
           return deepseekData.choices[0].message.content || '';
 
         case 'zhi4': // Perplexity
-          onProgress?.('Processing with ZHI 4 (Perplexity)...');
+          onProgress?.('Processing with ZHI 4...');
           const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
             headers: {

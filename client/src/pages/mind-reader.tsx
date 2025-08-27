@@ -61,10 +61,10 @@ export default function MindReader() {
   ];
 
   const llmProviders = [
-    { value: 'zhi1', label: 'ZHI 1 (OpenAI)' },
-    { value: 'zhi2', label: 'ZHI 2 (Anthropic)' },
-    { value: 'zhi3', label: 'ZHI 3 (DeepSeek)' },
-    { value: 'zhi4', label: 'ZHI 4 (Perplexity)' }
+    { value: 'zhi1', label: 'ZHI 1' },
+    { value: 'zhi2', label: 'ZHI 2' },
+    { value: 'zhi3', label: 'ZHI 3' },
+    { value: 'zhi4', label: 'ZHI 4' }
   ];
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,7 +166,10 @@ export default function MindReader() {
 
   const startAnalysis = async () => {
     const textToAnalyze = getTextToAnalyze(activeTab);
-    if (!textToAnalyze.trim()) return;
+    if (!textToAnalyze.trim()) {
+      alert("Please enter some text or select chunks to analyze.");
+      return;
+    }
 
     // Set analyzing state for current tab
     if (activeTab === 'tab1') {
@@ -465,7 +468,7 @@ export default function MindReader() {
         {!currentTab.isAnalyzing ? (
           <Button
             onClick={startAnalysis}
-            disabled={!currentTab.inputText.trim()}
+            disabled={!getTextToAnalyze(activeTab).trim()}
             data-testid="start-analysis-button"
           >
             <Play className="h-4 w-4 mr-2" />
@@ -503,7 +506,7 @@ export default function MindReader() {
       {/* Main Content - Split Layout */}
       <div className="flex h-[calc(100vh-180px)]">
         {/* Left Panel - Text Input */}
-        <div className="w-1/3 border-r flex flex-col">
+        <div className="w-1/2 border-r flex flex-col">
           <div className="p-4 flex-1 flex flex-col">
             <DragDropTextarea
               value={currentTab.inputText}
@@ -579,7 +582,7 @@ export default function MindReader() {
         </div>
 
         {/* Right Panel - Output Stream */}
-        <div className="w-2/3 flex flex-col">
+        <div className="w-1/2 flex flex-col">
           <div className="p-4 flex-1 overflow-y-auto">
             {/* Progress */}
             {currentTab.isAnalyzing && (
