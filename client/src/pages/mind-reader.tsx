@@ -245,14 +245,14 @@ export default function MindReader() {
   };
 
   return (
-    <div className="min-h-screen bg-white p-4">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="text-center mb-4">
+      <div className="text-center py-4 border-b">
         <h1 className="text-3xl font-bold text-gray-900">Tab 2</h1>
       </div>
 
       {/* Controls Bar */}
-      <div className="bg-gray-50 p-3 rounded mb-4 flex items-center gap-4 flex-wrap">
+      <div className="bg-gray-50 p-3 border-b flex items-center gap-4 flex-wrap">
         <Select value={selectedMode} onValueChange={(value: AnalysisMode) => setSelectedMode(value)}>
           <SelectTrigger className="w-48" data-testid="analysis-type-select">
             <SelectValue />
@@ -334,102 +334,124 @@ export default function MindReader() {
         )}
       </div>
 
-      {/* Text Input - Large */}
-      <Textarea
-        placeholder="Paste or type your text here..."
-        value={inputText}
-        onChange={(e) => handleTextInput(e.target.value)}
-        className="min-h-[500px] text-sm mb-4"
-        data-testid="text-input"
-      />
+      {/* Main Content - Split Layout */}
+      <div className="flex h-[calc(100vh-180px)]">
+        {/* Left Panel - Text Input */}
+        <div className="w-1/3 border-r flex flex-col">
+          <div className="p-4 flex-1 flex flex-col">
+            <Textarea
+              placeholder="Paste or type your text here..."
+              value={inputText}
+              onChange={(e) => handleTextInput(e.target.value)}
+              className="flex-1 text-sm resize-none"
+              data-testid="text-input"
+            />
+            
+            {inputText && (
+              <div className="text-sm text-gray-600 mt-2">
+                Word count: {TextChunkingService.getWordCount(inputText)}
+              </div>
+            )}
 
-      {inputText && (
-        <div className="text-sm text-gray-600 mb-4">
-          Word count: {TextChunkingService.getWordCount(inputText)}
+            {/* Chunking Section */}
+            {showChunks && (
+              <div className="mt-4 max-h-48 overflow-y-auto">
+                <h3 className="text-sm font-medium mb-2">Text Chunks (Select which to analyze)</h3>
+                <div className="space-y-2">
+                  {chunks.map((chunk) => (
+                    <div
+                      key={chunk.id}
+                      className={`p-2 border rounded cursor-pointer transition-colors ${
+                        chunk.selected ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
+                      }`}
+                      onClick={() => toggleChunk(chunk.id)}
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <Badge variant={chunk.selected ? "default" : "secondary"} className="text-xs">
+                          Chunk {chunk.id.split('-')[1]} ({chunk.wordCount} words)
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-600 line-clamp-2">
+                        {chunk.text.substring(0, 100)}...
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Chunking Section */}
-      {showChunks && (
-        <div className="mb-4">
-          <h3 className="text-lg font-medium mb-2">Text Chunks (Select which to analyze)</h3>
-          <div className="space-y-2">
-            {chunks.map((chunk) => (
-              <div
-                key={chunk.id}
-                className={`p-3 border rounded cursor-pointer transition-colors ${
-                  chunk.selected ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
-                }`}
-                onClick={() => toggleChunk(chunk.id)}
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <Badge variant={chunk.selected ? "default" : "secondary"}>
-                    Chunk {chunk.id.split('-')[1]} ({chunk.wordCount} words)
+        {/* Right Panel - Output Stream */}
+        <div className="w-2/3 flex flex-col">
+          <div className="p-4 flex-1 overflow-y-auto">
+            {/* Progress */}
+            {isAnalyzing && (
+              <div className="mb-4 p-4 bg-blue-50 rounded">
+                <div className="text-sm font-medium mb-2">Analysis Progress</div>
+                <div className="text-sm text-gray-600 mb-2">{progressMessage}</div>
+                <div className="max-h-32 overflow-y-auto bg-white p-2 rounded text-xs space-y-1">
+                  {streamingMessages.map((message, index) => (
+                    <div key={index} className="text-gray-600">
+                      {message}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Results */}
+            {analysisResult && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Analysis Results</h3>
+                  <Badge variant="outline" className="text-lg px-3 py-1">
+                    {analysisResult.finalScore}/100
                   </Badge>
                 </div>
-                <p className="text-sm text-gray-600 line-clamp-3">
-                  {chunk.text.substring(0, 150)}...
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Progress */}
-      {isAnalyzing && (
-        <div className="mb-4 p-4 bg-blue-50 rounded">
-          <div className="text-sm font-medium mb-2">Analysis Progress</div>
-          <div className="text-sm text-gray-600 mb-2">{progressMessage}</div>
-          <div className="max-h-32 overflow-y-auto bg-white p-2 rounded text-xs space-y-1">
-            {streamingMessages.map((message, index) => (
-              <div key={index} className="text-gray-600">
-                {message}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Results */}
-      {analysisResult && (
-        <div className="bg-gray-50 p-4 rounded">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Analysis Results</h3>
-            <Badge variant="outline" className="text-lg px-3 py-1">
-              {analysisResult.finalScore}/100
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <h4 className="font-medium mb-2">Summary</h4>
-              <p className="text-sm text-gray-600">{analysisResult.summary}</p>
-            </div>
-            <div>
-              <h4 className="font-medium mb-2">Category</h4>
-              <Badge>{analysisResult.category}</Badge>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="font-medium">Question Responses</h4>
-            {analysisResult.responses.map((response, index) => (
-              <div key={index} className="bg-white p-3 rounded border space-y-2">
-                <div className="flex justify-between items-start">
-                  <h5 className="font-medium text-sm flex-1 pr-4">
-                    {index + 1}. {response.question}
-                  </h5>
-                  <Badge variant={response.score >= 95 ? "default" : response.score >= 80 ? "secondary" : "destructive"}>
-                    {response.score}/100
-                  </Badge>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium mb-2">Summary</h4>
+                    <p className="text-sm text-gray-600">{analysisResult.summary}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Category</h4>
+                    <Badge>{analysisResult.category}</Badge>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600">{response.answer}</p>
+
+                <div className="space-y-3">
+                  <h4 className="font-medium">Question Responses</h4>
+                  {analysisResult.responses.map((response, index) => (
+                    <div key={index} className="bg-white p-3 rounded border space-y-2">
+                      <div className="flex justify-between items-start">
+                        <h5 className="font-medium text-sm flex-1 pr-4">
+                          {index + 1}. {response.question}
+                        </h5>
+                        <Badge variant={response.score >= 95 ? "default" : response.score >= 80 ? "secondary" : "destructive"}>
+                          {response.score}/100
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600">{response.answer}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
+
+            {/* Empty state when no analysis */}
+            {!isAnalyzing && !analysisResult && (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                <div className="text-center">
+                  <div className="text-lg mb-2">Output Stream</div>
+                  <div className="text-sm">Analysis results will appear here</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
