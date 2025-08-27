@@ -59,6 +59,9 @@ export default function AdvancedProfiler() {
     textChunksLength: textChunks.length,
     buttonDisabled: isAnalyzing || !formData.inputText.trim() || (needsChunking && selectedChunks.length === 0)
   });
+  
+  console.log('Chunking interface should show:', needsChunking && textChunks.length > 0);
+  console.log('Text chunks:', textChunks);
 
   // Generate chunks when text changes - split by sentences for better coherence
   const generateChunks = (text: string) => {
@@ -380,11 +383,11 @@ ${phase.responses?.[0]?.content || 'No response'}
 
             {/* Chunk Selection Interface */}
             {needsChunking && textChunks.length > 0 && (
-              <Card className="mt-4">
+              <Card className="mt-4 border-2 border-blue-500 bg-blue-50">
                 <CardHeader>
-                  <CardTitle>Chunk Selection</CardTitle>
-                  <CardDescription>
-                    Your text is over 300 words. Select which chunks to analyze:
+                  <CardTitle className="text-blue-800">⚠️ Chunk Selection Required</CardTitle>
+                  <CardDescription className="text-blue-700 font-medium">
+                    Your text is over 300 words ({wordCount} words). You MUST select which chunks to analyze before starting:
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -421,6 +424,16 @@ ${phase.responses?.[0]?.content || 'No response'}
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {/* Show warning if chunking is needed but no chunks selected */}
+            {needsChunking && textChunks.length > 0 && selectedChunks.length === 0 && (
+              <Alert className="border-red-500 bg-red-50">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800 font-medium">
+                  Please select at least one chunk above to enable the Start Analysis button.
+                </AlertDescription>
+              </Alert>
             )}
 
             <div className="space-y-2">
