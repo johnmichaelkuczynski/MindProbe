@@ -1,6 +1,6 @@
 # Overview
 
-Mind Reader is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis modes: Cognitive (Short/Long), Psychological (Short/Long), and Psychopathological (Short/Long). The application functions as a pure passthrough system with no filtering or hardcoded logic, relaying user input directly to LLM services and returning unfiltered responses. Key features include user-selectable text chunking for documents over 1000 words, ZHI provider naming system, and download functionality for evaluations as TXT files.
+Mind Reader is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis modes: Cognitive (Short/Long), Psychological (Short/Long), and Psychopathological (Short/Long). The application functions as a pure passthrough system with no filtering or hardcoded logic, relaying user input directly to LLM services and returning unfiltered responses. Key features include user-selectable text chunking for documents over 300 words (testing threshold, normally 1000), simplified ZHI provider naming system (ZHI 1, ZHI 2, etc.), and download functionality for evaluations as TXT files.
 
 # User Preferences
 
@@ -24,11 +24,11 @@ Preferred communication style: Simple, everyday language.
 - **Storage**: Configurable storage interface with in-memory implementation for development
 
 ## Core Services
-- **LLM Service**: Abstraction layer supporting multiple AI providers with ZHI naming system:
-  - ZHI 1 (OpenAI): Primary analysis engine using GPT models
-  - ZHI 2 (Anthropic): Claude-based reasoning using claude-sonnet-4-20250514
-  - ZHI 3 (DeepSeek): Specialized analysis capabilities
-  - ZHI 4 (Perplexity): Research-focused analysis
+- **LLM Service**: Abstraction layer supporting multiple AI providers with simplified ZHI naming system:
+  - ZHI 1: Primary analysis engine using OpenAI GPT models
+  - ZHI 2: Claude-based reasoning using Anthropic's claude-sonnet-4-20250514
+  - ZHI 3: Specialized analysis capabilities using DeepSeek
+  - ZHI 4: Research-focused analysis using Perplexity
 - **File Processor**: Handles text extraction from uploaded documents (PDF, Word, TXT files)
 - **Analysis Engine**: Pure passthrough system with no filtering, manages question sets for six analysis modes
 - **Chunk Selection**: User-controlled chunking interface for documents over 1000 words
@@ -50,10 +50,10 @@ Preferred communication style: Simple, everyday language.
 # External Dependencies
 
 ## AI/LLM Services
-- **OpenAI API**: Primary analysis engine (referenced as ZHI 1)
-- **Anthropic Claude**: Alternative reasoning model (referenced as ZHI 2) using claude-sonnet-4-20250514
-- **DeepSeek**: Specialized profiling engine (referenced as ZHI 3)
-- **Perplexity**: Research-focused model (referenced as ZHI 4)
+- **ZHI 1**: OpenAI API for primary analysis engine
+- **ZHI 2**: Anthropic Claude using claude-sonnet-4-20250514 for reasoning
+- **ZHI 3**: DeepSeek for specialized profiling
+- **ZHI 4**: Perplexity for research-focused analysis
 
 ## Database and Storage
 - **PostgreSQL**: Primary data storage via Neon Database serverless

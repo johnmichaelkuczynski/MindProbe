@@ -314,10 +314,10 @@ ${phase.responses?.[0]?.content || 'No response'}
                   <SelectValue placeholder="Select LLM provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="zhi1">ZHI 1 (OpenAI)</SelectItem>
-                  <SelectItem value="zhi2">ZHI 2 (Anthropic)</SelectItem>
-                  <SelectItem value="zhi3">ZHI 3 (DeepSeek)</SelectItem>
-                  <SelectItem value="zhi4">ZHI 4 (Perplexity)</SelectItem>
+                  <SelectItem value="zhi1">ZHI 1</SelectItem>
+                  <SelectItem value="zhi2">ZHI 2</SelectItem>
+                  <SelectItem value="zhi3">ZHI 3</SelectItem>
+                  <SelectItem value="zhi4">ZHI 4</SelectItem>
                 </SelectContent>
               </Select>
             </div>
