@@ -45,9 +45,9 @@ export default function AdvancedProfiler() {
   const [selectedChunks, setSelectedChunks] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check if text needs chunking (over 1000 words)
+  // Check if text needs chunking (over 300 words for testing, normally 1000)
   const wordCount = formData.inputText.trim().split(/\s+/).filter(word => word.length > 0).length;
-  const needsChunking = wordCount > 1000;
+  const needsChunking = wordCount > 300;
 
   // Generate chunks when text changes - split by sentences for better coherence
   const generateChunks = (text: string) => {
@@ -90,9 +90,12 @@ export default function AdvancedProfiler() {
 
   // Update chunks when input text changes
   const updateTextChunks = (text: string) => {
+    console.log('Updating chunks for text length:', text.length);
     const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    if (words > 1000) {
+    console.log('Word count:', words);
+    if (words > 300) { // Changed from 1000 to 300 for testing
       const chunks = generateChunks(text);
+      console.log('Generated chunks:', chunks.length);
       setTextChunks(chunks);
       setSelectedChunks([]); // Don't auto-select - force user to choose
     } else {
@@ -116,6 +119,7 @@ export default function AdvancedProfiler() {
       return response.json();
     },
     onSuccess: (data) => {
+      console.log('File upload successful, text length:', data.text.length);
       setFormData(prev => ({ ...prev, inputText: data.text }));
       updateTextChunks(data.text);
     },
@@ -354,8 +358,10 @@ ${phase.responses?.[0]?.content || 'No response'}
               placeholder="Enter the text you want to analyze using the advanced profiler protocol..."
               value={formData.inputText}
               onChange={(e) => {
-                setFormData(prev => ({ ...prev, inputText: e.target.value }));
-                updateTextChunks(e.target.value);
+                const newText = e.target.value;
+                console.log('Text area change, new length:', newText.length);
+                setFormData(prev => ({ ...prev, inputText: newText }));
+                updateTextChunks(newText);
               }}
               className="min-h-[200px]"
               data-testid="textarea-input-text"
@@ -367,7 +373,7 @@ ${phase.responses?.[0]?.content || 'No response'}
                 <CardHeader>
                   <CardTitle>Chunk Selection</CardTitle>
                   <CardDescription>
-                    Your text is over 1000 words. Select which chunks to analyze:
+                    Your text is over 300 words. Select which chunks to analyze:
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
