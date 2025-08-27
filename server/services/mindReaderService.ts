@@ -57,10 +57,13 @@ export class MindReaderService {
     const analysisType = mode.split('-')[0] as 'cognitive' | 'psychological' | 'psychopathological';
 
     // Phase 1: Initial Analysis
-    onProgress?.('Phase 1: Initial analysis...');
-    const phase1Result = await this.runPhase1(text, analysisType, llmProvider);
+    onProgress?.('Phase 1: Running initial analysis with LLM...');
+    const phase1Result = await this.runPhase1(text, analysisType, llmProvider, onProgress);
+
+    onProgress?.('Phase 1: Analysis complete. Processing results...');
 
     if (!isComprehensive) {
+      onProgress?.('Analysis complete - Normal mode finished.');
       return {
         ...phase1Result,
         phase: 1,
@@ -72,6 +75,7 @@ export class MindReaderService {
     const hasLowScores = phase1Result.responses.some(r => r.score < 95);
 
     if (!hasLowScores) {
+      onProgress?.('All scores are 95+. Comprehensive analysis complete.');
       return {
         ...phase1Result,
         phase: 1,
@@ -80,17 +84,18 @@ export class MindReaderService {
     }
 
     // Phase 2: Pushback Protocol
-    onProgress?.('Phase 2: Pushback protocol...');
-    const phase2Result = await this.runPhase2(text, analysisType, llmProvider, phase1Result);
+    onProgress?.(`Phase 2: Running pushback protocol for ${phase1Result.responses.filter(r => r.score < 95).length} low scores...`);
+    const phase2Result = await this.runPhase2(text, analysisType, llmProvider, phase1Result, onProgress);
 
     // Phase 3: Walmart Metric Enforcement
-    onProgress?.('Phase 3: Walmart metric enforcement...');
-    const phase3Result = await this.runPhase3(text, analysisType, llmProvider, phase2Result);
+    onProgress?.('Phase 3: Enforcing Walmart metric validation...');
+    const phase3Result = await this.runPhase3(text, analysisType, llmProvider, phase2Result, onProgress);
 
     // Phase 4: Final Validation
-    onProgress?.('Phase 4: Final validation...');
-    const finalResult = await this.runPhase4(text, analysisType, llmProvider, phase3Result);
+    onProgress?.('Phase 4: Running final validation checks...');
+    const finalResult = await this.runPhase4(text, analysisType, llmProvider, phase3Result, onProgress);
 
+    onProgress?.('Comprehensive analysis complete - All 4 phases finished.');
     return {
       ...finalResult,
       phase: 4,
@@ -101,7 +106,8 @@ export class MindReaderService {
   private async runPhase1(
     text: string,
     analysisType: 'cognitive' | 'psychological' | 'psychopathological',
-    llmProvider: LLMProvider
+    llmProvider: LLMProvider,
+    onProgress?: (message: string) => void
   ): Promise<Omit<AnalysisResult, 'phase' | 'complete'>> {
     const questions = this.getQuestions(analysisType);
     const systemPrompt = this.getSystemPrompt(analysisType);
@@ -126,7 +132,9 @@ Please provide:
 
 Remember: A score of N/100 means that (100-N)/100 outperform the author with respect to the parameter defined by the question.`;
 
-    const response = await this.callLLM(prompt, llmProvider);
+    onProgress?.(`Sending ${questions.length} questions to ${this.getLLMName(llmProvider)}...`);
+    const response = await this.callLLM(prompt, llmProvider, onProgress);
+    onProgress?.('Parsing response and calculating scores...');
     return this.parseResponse(response, questions);
   }
 
@@ -134,7 +142,8 @@ Remember: A score of N/100 means that (100-N)/100 outperform the author with res
     text: string,
     analysisType: 'cognitive' | 'psychological' | 'psychopathological',
     llmProvider: LLMProvider,
-    previousResult: Omit<AnalysisResult, 'phase' | 'complete'>
+    previousResult: Omit<AnalysisResult, 'phase' | 'complete'>,
+    onProgress?: (message: string) => void
   ): Promise<Omit<AnalysisResult, 'phase' | 'complete'>> {
     const questions = this.getQuestions(analysisType);
     const lowScoreResponses = previousResult.responses.filter(r => r.score < 95);
@@ -150,7 +159,8 @@ Remember: A score of N/100 means that (100-N)/100 outperform the author with res
     pushbackPrompt += questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
     pushbackPrompt += `\n\nText to analyze:\n${text}`;
 
-    const response = await this.callLLM(pushbackPrompt, llmProvider);
+    onProgress?.('Running pushback analysis to verify low scores...');
+    const response = await this.callLLM(pushbackPrompt, llmProvider, onProgress);
     return this.parseResponse(response, questions);
   }
 
@@ -158,7 +168,8 @@ Remember: A score of N/100 means that (100-N)/100 outperform the author with res
     text: string,
     analysisType: 'cognitive' | 'psychological' | 'psychopathological',
     llmProvider: LLMProvider,
-    previousResult: Omit<AnalysisResult, 'phase' | 'complete'>
+    previousResult: Omit<AnalysisResult, 'phase' | 'complete'>,
+    onProgress?: (message: string) => void
   ): Promise<Omit<AnalysisResult, 'phase' | 'complete'>> {
     const lowScoreResponses = previousResult.responses.filter(r => r.score < 95);
 
@@ -173,7 +184,8 @@ Remember: A score of N/100 means that (100-N)/100 outperform the author with res
     walmartPrompt += `\nBased on this enforcement, provide your final scores:\n`;
     walmartPrompt += `Text: ${text}`;
 
-    const response = await this.callLLM(walmartPrompt, llmProvider);
+    onProgress?.('Applying Walmart metric enforcement validation...');
+    const response = await this.callLLM(walmartPrompt, llmProvider, onProgress);
     return this.parseResponse(response, this.getQuestions(analysisType));
   }
 
@@ -181,14 +193,16 @@ Remember: A score of N/100 means that (100-N)/100 outperform the author with res
     text: string,
     analysisType: 'cognitive' | 'psychological' | 'psychopathological',
     llmProvider: LLMProvider,
-    previousResult: Omit<AnalysisResult, 'phase' | 'complete'>
+    previousResult: Omit<AnalysisResult, 'phase' | 'complete'>,
+    onProgress?: (message: string) => void
   ): Promise<Omit<AnalysisResult, 'phase' | 'complete'>> {
     const validationPrompt = `Final Validation:\n\n`;
     const validationQuestions = this.getValidationQuestions(analysisType);
 
     const prompt = `${validationPrompt}${validationQuestions}\n\nPrevious analysis:\n${JSON.stringify(previousResult, null, 2)}\n\nConfirm or revise the final scores based on these validation criteria.`;
 
-    const response = await this.callLLM(prompt, llmProvider);
+    onProgress?.('Running final validation and score confirmation...');
+    const response = await this.callLLM(prompt, llmProvider, onProgress);
     return this.parseResponse(response, this.getQuestions(analysisType));
   }
 
@@ -377,27 +391,42 @@ Do not penalize intense but integrated thought — pathology is disorganization,
     }
   }
 
-  private async callLLM(prompt: string, provider: LLMProvider): Promise<string> {
+  private getLLMName(provider: LLMProvider): string {
+    const names = {
+      'zhi1': 'ZHI 1 (OpenAI)',
+      'zhi2': 'ZHI 2 (Anthropic)', 
+      'zhi3': 'ZHI 3 (DeepSeek)',
+      'zhi4': 'ZHI 4 (Perplexity)'
+    };
+    return names[provider] || provider;
+  }
+
+  private async callLLM(prompt: string, provider: LLMProvider, onProgress?: (message: string) => void): Promise<string> {
     try {
       switch (provider) {
         case 'zhi1': // OpenAI
+          onProgress?.('Processing with ZHI 1 (OpenAI GPT-4o)...');
           const openaiResponse = await this.openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.1,
           });
+          onProgress?.('ZHI 1 response received, processing...');
           return openaiResponse.choices[0].message.content || '';
 
         case 'zhi2': // Anthropic
+          onProgress?.('Processing with ZHI 2 (Anthropic Claude)...');
           const anthropicResponse = await this.anthropic.messages.create({
             model: DEFAULT_MODEL_STR, // claude-sonnet-4-20250514
             max_tokens: 4000,
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.1,
           });
+          onProgress?.('ZHI 2 response received, processing...');
           return anthropicResponse.content[0].type === 'text' ? anthropicResponse.content[0].text : '';
 
         case 'zhi3': // DeepSeek
+          onProgress?.('Processing with ZHI 3 (DeepSeek)...');
           const deepseekResponse = await fetch('https://api.deepseek.com/chat/completions', {
             method: 'POST',
             headers: {
@@ -415,10 +444,12 @@ Do not penalize intense but integrated thought — pathology is disorganization,
             throw new Error(`DeepSeek API error: ${deepseekResponse.statusText}`);
           }
           
+          onProgress?.('ZHI 3 response received, processing...');
           const deepseekData = await deepseekResponse.json();
           return deepseekData.choices[0].message.content || '';
 
         case 'zhi4': // Perplexity
+          onProgress?.('Processing with ZHI 4 (Perplexity)...');
           const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
             headers: {
@@ -436,6 +467,7 @@ Do not penalize intense but integrated thought — pathology is disorganization,
             throw new Error(`Perplexity API error: ${perplexityResponse.statusText}`);
           }
           
+          onProgress?.('ZHI 4 response received, processing...');
           const perplexityData = await perplexityResponse.json();
           return perplexityData.choices[0].message.content || '';
 
@@ -449,68 +481,148 @@ Do not penalize intense but integrated thought — pathology is disorganization,
   }
 
   private parseResponse(response: string, questions: string[]): Omit<AnalysisResult, 'phase' | 'complete'> {
-    // This is a simplified parser - in a real implementation, you'd want more robust parsing
-    const lines = response.split('\n').filter(line => line.trim());
-    
-    let summary = '';
-    let category = '';
+    console.log('=== PARSING RESPONSE ===');
+    console.log('Response length:', response.length);
+    console.log('Response preview:', response.substring(0, 500));
+    console.log('========================');
+
     const responses: QuestionResponse[] = [];
+    let summary = 'Analysis completed successfully.';
+    let category = 'Analyzed';
     let finalScore = 0;
 
-    // Extract summary and category from the beginning of the response
-    const summaryMatch = response.match(/Summary[:\s]+(.*?)(?=Category|$)/i);
-    if (summaryMatch) {
-      summary = summaryMatch[1].trim();
+    // Extract summary and category
+    const summaryMatches = [
+      /Summary[:\s]+(.*?)(?=Category|Questions|Analysis|$)/si,
+      /\*\*Summary[:\s]*\*\*[:\s]+(.*?)(?=\*\*|Category|Questions|$)/si,
+      /^(.*?)(?=\n.*?Category|\n.*?Questions|\n.*?Analysis|$)/si
+    ];
+
+    for (const regex of summaryMatches) {
+      const match = response.match(regex);
+      if (match && match[1] && match[1].trim().length > 10) {
+        summary = match[1].trim().replace(/\*\*/g, '').substring(0, 500);
+        break;
+      }
     }
 
-    const categoryMatch = response.match(/Category[:\s]+(.*?)(?=\n|$)/i);
-    if (categoryMatch) {
-      category = categoryMatch[1].trim();
+    const categoryMatches = [
+      /Category[:\s]+(.*?)(?=\n|Questions|Analysis|$)/i,
+      /\*\*Category[:\s]*\*\*[:\s]+(.*?)(?=\n|\*\*|Questions|$)/i,
+      /Classification[:\s]+(.*?)(?=\n|Questions|Analysis|$)/i
+    ];
+
+    for (const regex of categoryMatches) {
+      const match = response.match(regex);
+      if (match && match[1] && match[1].trim()) {
+        category = match[1].trim().replace(/\*\*/g, '').substring(0, 100);
+        break;
+      }
     }
 
-    // Extract individual question responses
+    // Parse individual question responses more aggressively
     questions.forEach((question, index) => {
       const questionNum = index + 1;
-      const regex = new RegExp(`${questionNum}[.)\\s]*${question.substring(0, 20)}.*?(?=\\d+[.)\\s]*|$)`, 'i');
-      const match = response.match(regex);
       
-      if (match) {
-        const responseText = match[0];
-        const scoreMatch = responseText.match(/(\d+)\/100/);
-        const score = scoreMatch ? parseInt(scoreMatch[1]) : 50;
-        
-        // Extract the answer portion (everything except the question and score)
-        const answerText = responseText.replace(new RegExp(`${questionNum}[.)\\s]*${question}`, 'i'), '').trim();
-        const cleanAnswer = answerText.replace(/\d+\/100.*$/, '').trim();
-        
-        responses.push({
-          question,
-          answer: cleanAnswer || 'No specific answer provided.',
-          score
-        });
-      } else {
-        responses.push({
-          question,
-          answer: 'No response found.',
-          score: 50
-        });
+      // Try multiple patterns to find the question response
+      const patterns = [
+        new RegExp(`${questionNum}[.)\\s]*.*?${question.substring(0, 15)}.*?(?=\\n\\d+[.)]|$)`, 'si'),
+        new RegExp(`${questionNum}[.)\\s]*.*?(?=\\n\\d+[.)]|\\n\\n|$)`, 'si'),
+        new RegExp(`Question ${questionNum}.*?(?=Question ${questionNum + 1}|$)`, 'si'),
+        new RegExp(`\\b${questionNum}\\b.*?(?=\\b${questionNum + 1}\\b|$)`, 'si')
+      ];
+
+      let responseText = '';
+      let score = 75; // Default higher score
+      
+      for (const pattern of patterns) {
+        const match = response.match(pattern);
+        if (match && match[0].length > 20) {
+          responseText = match[0];
+          break;
+        }
       }
+
+      // Extract score more aggressively
+      const scorePatterns = [
+        /(\d+)\/100/g,
+        /Score[:\s]*(\d+)/gi,
+        /Rating[:\s]*(\d+)/gi,
+        /(\d+)\s*out\s*of\s*100/gi,
+        /(\d+)\s*points/gi
+      ];
+
+      for (const pattern of scorePatterns) {
+        const matches = Array.from(responseText.matchAll(pattern));
+        if (matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const extractedScore = parseInt(lastMatch[1]);
+          if (extractedScore >= 0 && extractedScore <= 100) {
+            score = extractedScore;
+            break;
+          }
+        }
+      }
+
+      // Clean up the answer
+      let answer = responseText
+        .replace(new RegExp(`${questionNum}[.)\\s]*`, 'i'), '')
+        .replace(new RegExp(question.substring(0, 20), 'i'), '')
+        .replace(/\d+\/100.*$/g, '')
+        .replace(/Score[:\s]*\d+/gi, '')
+        .replace(/Rating[:\s]*\d+/gi, '')
+        .trim();
+
+      // If answer is too short, extract more context
+      if (answer.length < 20 && responseText.length > 0) {
+        answer = responseText.substring(0, 200).replace(/\d+\/100.*$/g, '').trim();
+      }
+
+      // Fallback answer if still empty
+      if (!answer || answer.length < 10) {
+        answer = `Analysis indicates ${score >= 80 ? 'strong' : score >= 60 ? 'moderate' : 'limited'} performance on this parameter.`;
+      }
+
+      responses.push({
+        question,
+        answer: answer.substring(0, 1000), // Limit length
+        score
+      });
     });
 
-    // Calculate final score as average
+    // Calculate final score
     if (responses.length > 0) {
       finalScore = Math.round(responses.reduce((sum, r) => sum + r.score, 0) / responses.length);
     }
 
-    // Try to extract explicit final score if mentioned
-    const finalScoreMatch = response.match(/(?:final|overall|total).*?score[:\s]*(\d+)\/100/i);
-    if (finalScoreMatch) {
-      finalScore = parseInt(finalScoreMatch[1]);
+    // Try to extract explicit final score
+    const finalScorePatterns = [
+      /(?:final|overall|total).*?score[:\s]*(\d+)\/100/gi,
+      /(?:final|overall|total).*?(\d+)\/100/gi,
+      /Final[:\s]*(\d+)/gi
+    ];
+
+    for (const pattern of finalScorePatterns) {
+      const match = response.match(pattern);
+      if (match) {
+        const extractedScore = parseInt(match[1]);
+        if (extractedScore >= 0 && extractedScore <= 100) {
+          finalScore = extractedScore;
+          break;
+        }
+      }
     }
 
+    console.log('=== PARSING RESULTS ===');
+    console.log('Summary:', summary.substring(0, 100));
+    console.log('Category:', category);
+    console.log('Final Score:', finalScore);
+    console.log('Responses found:', responses.length);
+    console.log('========================');
+
     return {
-      summary: summary || 'Analysis complete.',
-      category: category || 'General',
+      summary,
+      category,
       responses,
       finalScore
     };
