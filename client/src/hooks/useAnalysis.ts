@@ -65,6 +65,10 @@ export function useAnalysis() {
     }
   });
 
+  const clearCurrentAnalysis = () => {
+    setCurrentAnalysisId(null);
+  };
+
   const downloadAnalysis = async (analysisId: string) => {
     try {
       const response = await fetch(`/api/analysis/${analysisId}/download`);
@@ -95,6 +99,7 @@ export function useAnalysis() {
     sendDialogue: sendDialogueMutation,
     regenerateAnalysis: regenerateAnalysisMutation,
     downloadAnalysis,
+    clearCurrentAnalysis,
     isStarting: startAnalysisMutation.isPending,
     isUploading: uploadFileMutation.isPending,
   };

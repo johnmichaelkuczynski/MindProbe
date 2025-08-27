@@ -33,6 +33,7 @@ export default function Home() {
     sendDialogue,
     regenerateAnalysis,
     downloadAnalysis,
+    clearCurrentAnalysis,
     isStarting,
     isUploading,
   } = useAnalysis();
@@ -192,9 +193,12 @@ export default function Home() {
     setTextChunks([]);
     setShowChunkSelector(false);
     
+    // Clear the current analysis results
+    clearCurrentAnalysis();
+    
     toast({
       title: "New analysis ready",
-      description: "All fields have been cleared for a new analysis.",
+      description: "All fields and results have been cleared for a new analysis.",
     });
   };
 
