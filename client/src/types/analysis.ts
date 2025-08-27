@@ -7,12 +7,12 @@ export type AnalysisType =
   | 'comprehensive-psychopathological';
 
 export type AdvancedAnalysisType = 
-  | 'advanced-cognitive' 
-  | 'advanced-comprehensive-cognitive' 
-  | 'advanced-psychological' 
-  | 'advanced-comprehensive-psychological' 
-  | 'advanced-psychopathological' 
-  | 'advanced-comprehensive-psychopathological';
+  | 'cognitive-short' 
+  | 'cognitive-long'
+  | 'psychological-short' 
+  | 'psychological-long'
+  | 'psychopathological-short' 
+  | 'psychopathological-long';
 
 export type AllAnalysisTypes = AnalysisType | AdvancedAnalysisType;
 

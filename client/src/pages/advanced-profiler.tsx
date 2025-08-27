@@ -20,6 +20,7 @@ interface AdvancedAnalysisFormData {
   llmProvider: LLMProvider;
   inputText: string;
   additionalContext?: string;
+  selectedChunks?: number[];
 }
 
 interface AdvancedPhaseEvent {
@@ -29,7 +30,7 @@ interface AdvancedPhaseEvent {
 
 export default function AdvancedProfiler() {
   const [formData, setFormData] = useState<AdvancedAnalysisFormData>({
-    analysisType: 'advanced-cognitive',
+    analysisType: 'cognitive-short',
     llmProvider: 'zhi2',
     inputText: '',
     additionalContext: ''
@@ -40,7 +41,37 @@ export default function AdvancedProfiler() {
   const [currentPhase, setCurrentPhase] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [textChunks, setTextChunks] = useState<{text: string, index: number}[]>([]);
+  const [selectedChunks, setSelectedChunks] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if text needs chunking (over 1000 words)
+  const needsChunking = formData.inputText.split(' ').length > 1000;
+
+  // Generate chunks when text changes
+  const generateChunks = (text: string) => {
+    const words = text.split(' ');
+    const chunks = [];
+    for (let i = 0; i < words.length; i += 1000) {
+      chunks.push({
+        text: words.slice(i, i + 1000).join(' '),
+        index: Math.floor(i / 1000)
+      });
+    }
+    return chunks;
+  };
+
+  // Update chunks when input text changes
+  const updateTextChunks = (text: string) => {
+    if (text.split(' ').length > 1000) {
+      const chunks = generateChunks(text);
+      setTextChunks(chunks);
+      setSelectedChunks([0]); // Select first chunk by default
+    } else {
+      setTextChunks([]);
+      setSelectedChunks([]);
+    }
+  };
 
   // File upload mutation
   const fileUploadMutation = useMutation({
@@ -58,6 +89,7 @@ export default function AdvancedProfiler() {
     },
     onSuccess: (data) => {
       setFormData(prev => ({ ...prev, inputText: data.text }));
+      updateTextChunks(data.text);
     },
     onError: (error) => {
       setError(error instanceof Error ? error.message : 'Upload failed');
@@ -106,6 +138,7 @@ export default function AdvancedProfiler() {
         setCurrentPhase(null);
       }
     },
+    currentAnalysisId,
     !!currentAnalysisId && isAnalyzing
   );
 
@@ -121,17 +154,53 @@ export default function AdvancedProfiler() {
       setError('Please provide text to analyze');
       return;
     }
-    startAnalysisMutation.mutate(formData);
+    
+    const analysisData = { ...formData };
+    if (needsChunking && selectedChunks.length > 0) {
+      analysisData.selectedChunks = selectedChunks;
+    }
+    
+    startAnalysisMutation.mutate(analysisData);
+  };
+
+  const handleChunkSelection = (chunkIndex: number) => {
+    setSelectedChunks(prev => 
+      prev.includes(chunkIndex) 
+        ? prev.filter(i => i !== chunkIndex)
+        : [...prev, chunkIndex]
+    );
+  };
+
+  const downloadResults = () => {
+    if (phases.length === 0) return;
+    
+    const results = phases.map(phase => `
+PHASE ${phase.phase}
+${phase.questions?.map((q: any, i: number) => `${i+1}. ${q.question}`).join('\n') || ''}
+
+RESPONSE:
+${phase.responses?.[0]?.content || 'No response'}
+`).join('\n\n---\n\n');
+
+    const blob = new Blob([results], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mind-reader-analysis-${formData.analysisType}-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const getAnalysisTypeDescription = (type: AdvancedAnalysisType) => {
     const descriptions = {
-      'advanced-cognitive': 'Deep cognitive assessment using advanced intelligence protocol with insight focus',
-      'advanced-comprehensive-cognitive': 'Complete 4-phase cognitive analysis with pushback and Walmart metric',
-      'advanced-psychological': 'Advanced psychological profiling with ego strength and defense analysis',
-      'advanced-comprehensive-psychological': 'Full 4-phase psychological assessment with validation protocols',
-      'advanced-psychopathological': 'Advanced pathology detection with reality testing focus',
-      'advanced-comprehensive-psychopathological': 'Complete 4-phase psychopathological analysis with calibration'
+      'cognitive-short': 'Phase 1 only: Direct cognitive questions with scoring',
+      'cognitive-long': 'Full 4-phase cognitive analysis with pushback and Walmart metric enforcement',
+      'psychological-short': 'Phase 1 only: Core psychological profiling questions',
+      'psychological-long': 'Complete 4-phase psychological assessment with validation protocols',
+      'psychopathological-short': 'Phase 1 only: Direct pathology assessment questions',
+      'psychopathological-long': 'Full 4-phase psychopathological analysis with comprehensive validation'
     };
     return descriptions[type];
   };
@@ -153,15 +222,15 @@ export default function AdvancedProfiler() {
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">Advanced Profiler</h1>
         <p className="text-muted-foreground">
-          Advanced cognitive, psychological, and psychopathological analysis with 4-phase validation protocol
+          Six analysis modes: Cognitive, Psychological, and Psychopathological - each with Short (Phase 1) and Long (4-Phase) variants
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Advanced Analysis Configuration</CardTitle>
+          <CardTitle>Mind Reader Analysis Configuration</CardTitle>
           <CardDescription>
-            Configure your advanced analysis with enhanced scoring methodology (95-100/100 calibration)
+            Pure passthrough system with no filtering - direct LLM evaluation using ZHI providers
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -178,12 +247,12 @@ export default function AdvancedProfiler() {
                   <SelectValue placeholder="Select analysis type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="advanced-cognitive">Advanced Cognitive</SelectItem>
-                  <SelectItem value="advanced-comprehensive-cognitive">Advanced Comprehensive Cognitive</SelectItem>
-                  <SelectItem value="advanced-psychological">Advanced Psychological</SelectItem>
-                  <SelectItem value="advanced-comprehensive-psychological">Advanced Comprehensive Psychological</SelectItem>
-                  <SelectItem value="advanced-psychopathological">Advanced Psychopathological</SelectItem>
-                  <SelectItem value="advanced-comprehensive-psychopathological">Advanced Comprehensive Psychopathological</SelectItem>
+                  <SelectItem value="cognitive-short">Cognitive (Short)</SelectItem>
+                  <SelectItem value="cognitive-long">Cognitive (Long)</SelectItem>
+                  <SelectItem value="psychological-short">Psychological (Short)</SelectItem>
+                  <SelectItem value="psychological-long">Psychological (Long)</SelectItem>
+                  <SelectItem value="psychopathological-short">Psychopathological (Short)</SelectItem>
+                  <SelectItem value="psychopathological-long">Psychopathological (Long)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
@@ -246,10 +315,56 @@ export default function AdvancedProfiler() {
               id="input-text"
               placeholder="Enter the text you want to analyze using the advanced profiler protocol..."
               value={formData.inputText}
-              onChange={(e) => setFormData(prev => ({ ...prev, inputText: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, inputText: e.target.value }));
+                updateTextChunks(e.target.value);
+              }}
               className="min-h-[200px]"
               data-testid="textarea-input-text"
             />
+
+            {/* Chunk Selection Interface */}
+            {needsChunking && textChunks.length > 0 && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Chunk Selection</CardTitle>
+                  <CardDescription>
+                    Your text is over 1000 words. Select which chunks to analyze:
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2 flex-wrap">
+                    {textChunks.map((chunk) => (
+                      <Button
+                        key={chunk.index}
+                        variant={selectedChunks.includes(chunk.index) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleChunkSelection(chunk.index)}
+                        data-testid={`button-chunk-${chunk.index}`}
+                      >
+                        Chunk {chunk.index + 1}
+                      </Button>
+                    ))}
+                  </div>
+                  
+                  {selectedChunks.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Selected Chunks Preview:</Label>
+                      <div className="max-h-32 overflow-y-auto bg-muted p-3 rounded text-sm">
+                        {selectedChunks.map(index => (
+                          <div key={index} className="mb-2">
+                            <Badge variant="secondary" className="mb-1">Chunk {index + 1}</Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {textChunks[index]?.text.substring(0, 100)}...
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="additional-context">Additional Context (Optional)</Label>
@@ -271,25 +386,43 @@ export default function AdvancedProfiler() {
             </Alert>
           )}
 
-          <Button
-            onClick={handleStartAnalysis}
-            disabled={isAnalyzing || !formData.inputText.trim()}
-            className="w-full"
-            size="lg"
-            data-testid="button-start-analysis"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 mr-2" />
-                Start Advanced Analysis
-              </>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleStartAnalysis}
+              disabled={
+                isAnalyzing || 
+                !formData.inputText.trim() || 
+                (needsChunking && selectedChunks.length === 0)
+              }
+              className="flex-1"
+              size="lg"
+              data-testid="button-start-analysis"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Start Mind Reader Analysis
+                </>
+              )}
+            </Button>
+            
+            {phases.length > 0 && (
+              <Button
+                onClick={downloadResults}
+                variant="outline"
+                size="lg"
+                data-testid="button-download-results"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download TXT
+              </Button>
             )}
-          </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -1,5 +1,4 @@
 import { LLMService } from './llmService';
-import { ScoringCalibrator } from './scoringCalibrator';
 import { TextChunker, type TextChunk } from './textChunker';
 import type { AdvancedAnalysisType } from '../../client/src/types/analysis';
 
@@ -15,18 +14,15 @@ export interface AdvancedPhaseResult {
   responses: any[];
   summary?: string;
   finalScore?: number;
-  calibrationType?: 'impostor' | 'genuine' | 'unknown';
   chunked?: boolean;
   chunkCount?: number;
 }
 
 export class AdvancedAnalysisEngine {
   private llmService: LLMService;
-  private calibrator: ScoringCalibrator;
 
   constructor() {
     this.llmService = new LLMService();
-    this.calibrator = new ScoringCalibrator();
   }
 
   // Advanced Cognitive Questions - Based on your protocol
@@ -260,7 +256,7 @@ Provide your final analysis and scores.`;
     onProgress?: (event: any) => void
   ): Promise<AdvancedPhaseResult[]> {
     const questions = this.getQuestionsForType(analysisType);
-    const isComprehensive = analysisType.includes('comprehensive');
+    const isLongMode = analysisType.endsWith('-long');
     const results: AdvancedPhaseResult[] = [];
 
     try {
@@ -279,7 +275,6 @@ Provide your final analysis and scores.`;
       onProgress?.({ type: 'phase', data: { phase: 1, message: 'Starting Phase 1 analysis...' } });
       
       let phase1Content = '';
-      let passageType: 'impostor' | 'genuine' | 'unknown' = 'unknown';
       
       if (needsChunking) {
         // Process each chunk
@@ -307,31 +302,18 @@ Provide your final analysis and scores.`;
         const combinedResult = TextChunker.combineChunkResults(chunkResults);
         phase1Content = typeof combinedResult === 'string' ? combinedResult : combinedResult.summary || JSON.stringify(combinedResult, null, 2);
         
-        // Apply calibration to the original full text
-        passageType = this.calibrator.detectPassageType(inputText);
       } else {
         // Single text analysis
         const phase1Prompt = this.buildPhase1Prompt(analysisType, inputText, questions);
         const phase1Response = await this.llmService.sendMessage(llmProvider as any, phase1Prompt);
         phase1Content = phase1Response.content;
-        passageType = this.calibrator.detectPassageType(inputText);
       }
       
-      // Apply calibration enforcement
-      let calibrationNote = '';
-      if (passageType === 'impostor') {
-        calibrationNote = '\n\n🚨 CALIBRATION OVERRIDE: This passage contains impostor academic prose patterns. Scores capped at 65/100 maximum.';
-        phase1Content += calibrationNote;
-      } else if (passageType === 'genuine') {
-        calibrationNote = '\n\n✅ CALIBRATION OVERRIDE: This passage contains genuine insight patterns. Scores elevated to 90/100 minimum.';
-        phase1Content += calibrationNote;
-      }
-      
+      // Pure passthrough - no calibration or filtering
       const phase1Result: AdvancedPhaseResult = {
         phase: 1,
         questions,
         responses: [{ content: phase1Content, timestamp: new Date() }],
-        calibrationType: passageType,
         chunked: needsChunking,
         chunkCount: needsChunking ? chunks.length : 1
       };
@@ -339,7 +321,7 @@ Provide your final analysis and scores.`;
       
       onProgress?.({ type: 'phase_complete', data: { phase: 1, result: phase1Result } });
 
-      if (!isComprehensive) {
+      if (analysisType.endsWith('-short')) {
         return results;
       }
 
