@@ -8,7 +8,7 @@ import { ChunkSelector } from "@/components/ChunkSelector";
 import { AnalysisType, LLMProvider } from "@/types/analysis";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, HelpCircle, Settings } from "lucide-react";
+import { Brain, HelpCircle, Settings, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextChunkingService, TextChunk } from "@shared/textUtils";
 
@@ -181,6 +181,23 @@ export default function Home() {
     }
   };
 
+  const handleNewAnalysis = () => {
+    // Reset all state for a fresh analysis
+    setInputText("");
+    setAdditionalContext("");
+    setIsAnalyzing(false);
+    setProgress(0);
+    setQuestionsProcessed(0);
+    setCurrentPhase("Ready");
+    setTextChunks([]);
+    setShowChunkSelector(false);
+    
+    toast({
+      title: "New analysis ready",
+      description: "All fields have been cleared for a new analysis.",
+    });
+  };
+
   // Simulate progress updates (in real implementation, this would come from SSE)
   useEffect(() => {
     if (isAnalyzing && questionsProcessed < totalQuestions) {
@@ -222,6 +239,16 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center space-x-4">
+              <Button 
+                onClick={handleNewAnalysis}
+                variant="outline" 
+                size="sm" 
+                className="text-primary-blue border-primary-blue hover:bg-primary-blue hover:text-white"
+                data-testid="button-new-analysis"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Analysis
+              </Button>
               <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
                 <HelpCircle className="h-5 w-5" />
               </Button>
