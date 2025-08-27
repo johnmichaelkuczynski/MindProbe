@@ -2,6 +2,14 @@
 
 Mind Reader is a cognitive/psychological/psychopathological profiler application that provides six distinct analysis types: cognitive, comprehensive cognitive, psychological, comprehensive psychological, psychopathological, and comprehensive psychopathological. The application functions as a passthrough system that relays user input to LLM services and returns unfiltered responses for professional assessment purposes.
 
+## Recent Changes (August 27, 2025)
+- ✓ Updated analysis engine to send complete instruction text with every LLM request
+- ✓ Implemented revised intelligence protocol with updated scoring methodology
+- ✓ Added paradigm example of phony pseudo-intellectual text for LLM reference
+- ✓ Fixed PDF upload functionality with proper text extraction
+- ✓ Enhanced scoring calibration: scores represent outperformance (XX/100 = author outperforms XX people)
+- ✓ Removed all formatting markup from LLM outputs for clean plain text responses
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.

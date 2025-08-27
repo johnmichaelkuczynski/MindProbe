@@ -137,31 +137,24 @@ ${contextPrompt}Answer this question in connection with this text: ${question.qu
 
 Text: ${text}
 
-CRITICAL SCORING REQUIREMENTS:
-1. Provide a clear numerical score in the format XX/100 (e.g., 96/100, 99/100)
-2. The score represents how many people out of 100 the author outperforms on this specific parameter
-3. So if you give 96/100, it means only 4 out of 100 people are running rings around the author
-4. Use NO formatting markup whatsoever - no **, *, ##, +++, ---, ***, ###, etc.
-5. Write in plain text only
+ANSWER THESE QUESTIONS IN CONNECTION WITH THIS TEXT. 
 
-SCORING CALIBRATION - BE ACCURATE:
-- 99-100/100: Exceptional, genius-level work that demonstrates profound insight, originality, and mastery
-- 95-98/100: Highly sophisticated work that shows advanced understanding and skill
-- 90-94/100: Strong, competent work with clear expertise
-- 80-89/100: Above-average work with some good points
-- 70-79/100: Average work, meets basic standards
-- Below 70/100: Poor work with significant flaws
+A score of N/100 (e.g. 73/100) means that (100-N)/100 (e.g. 27/100) outperform the author with respect to the parameter defined by the question. 
 
-DO NOT be artificially modest or conservative with high scores. If the text demonstrates genuine sophistication, insight, and mastery, score it accordingly in the 95-100 range.
+You are not grading; you are answering these questions. You do not use a risk-averse standard; you do not attempt to be diplomatic; you do not attempt to comply with risk-averse, medium-range IQ, academic norms. You do not make assumptions about the level of the paper; it could be a work of the highest excellence and genius, or it could be the work of a moron.
+
+If a work is a work of genius, you say that, and you say why; you do not shy away from giving what might conventionally be regarded as excessively "superlative" scores; you give it the score it deserves, not the score that a midwit committee would say it deserves.
+
+You think very very very hard about your answers; make it very clear that you are not to default to cookbook, midwit evaluation protocols.
+
+DO NOT GIVE CREDIT MERELY FOR USE OF JARGON OR FOR REFERENCING AUTHORITIES. FOCUS ON SUBSTANCE. ONLY GIVE POINTS FOR SCHOLARLY REFERENCES/JARGON IF THEY UNAMBIGUOUSLY INCREASE SUBSTANCE.
+
+Use NO formatting markup whatsoever - no **, *, ##, +++, ---, ***, ###, etc. Write in plain text only.
 
 Structure your response as:
 [Your analysis with specific quotations and reasoning]
 
-Score: XX/100
-
-You are not grading; you are answering the question. Do not use a risk-averse standard; do not attempt to be diplomatic; do not attempt to comply with risk-averse, medium-range IQ, academic norms. Do not make assumptions about the level of the text; it could be a work of the highest excellence and genius, or it could be the work of a moron.
-
-Think very carefully about your answer and do not default to cookbook, midwit evaluation protocols. Do not give credit merely for use of jargon or for referencing authorities. Focus on substance and actual quality.`;
+Score: XX/100`;
 
     let answer = '';
     for await (const chunk of this.llmService.streamMessage(provider, prompt)) {
