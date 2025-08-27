@@ -23,6 +23,7 @@ export function InputSection({
   isUploading
 }: InputSectionProps) {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -73,10 +74,54 @@ export function InputSection({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      
+      // Check file type
+      const allowedTypes = ['.pdf', '.docx', '.txt'];
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      
+      if (allowedTypes.includes(fileExtension)) {
+        setUploadedFile(file);
+        onFileUpload(file);
+        toast({
+          title: "File uploaded",
+          description: `${file.name} ready for processing`,
+        });
+      } else {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload PDF, Word (.docx), or Text (.txt) files only",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Text Input */}
-      <Card className="border-border-light shadow-sm">
+      <Card className={`border-border-light shadow-sm transition-colors ${
+        isDragging ? 'border-primary-blue border-2 bg-blue-50' : ''
+      }`}>
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Text Input</h3>
@@ -102,13 +147,33 @@ export function InputSection({
             </div>
           </div>
           
-          <Textarea
-            value={inputText}
-            onChange={(e) => onTextChange(e.target.value)}
-            placeholder="Enter or paste your text here for analysis. This input area supports large amounts of text..."
-            className="min-h-80 resize-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-            data-testid="input-text"
-          />
+          <div 
+            className={`relative ${isDragging ? 'pointer-events-none' : ''}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <Textarea
+              value={inputText}
+              onChange={(e) => onTextChange(e.target.value)}
+              placeholder="Enter or paste your text here for analysis. You can also drag and drop files directly onto this text area..."
+              className={`min-h-80 resize-none focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-colors ${
+                isDragging ? 'bg-blue-50 border-primary-blue border-2 border-dashed' : ''
+              }`}
+              data-testid="input-text"
+            />
+            
+            {/* Drag overlay */}
+            {isDragging && (
+              <div className="absolute inset-0 flex items-center justify-center bg-blue-50 bg-opacity-90 border-2 border-dashed border-primary-blue rounded-md pointer-events-none">
+                <div className="text-center">
+                  <Upload className="h-12 w-12 text-primary-blue mx-auto mb-2" />
+                  <p className="text-lg font-medium text-primary-blue">Drop file to upload</p>
+                  <p className="text-sm text-gray-600">PDF, Word, or Text files</p>
+                </div>
+              </div>
+            )}
+          </div>
           
           <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
             <span data-testid="text-character-count">{characterCount} characters</span>
