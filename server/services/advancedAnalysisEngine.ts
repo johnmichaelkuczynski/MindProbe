@@ -1,5 +1,6 @@
 import { LLMService } from './llmService';
 import { ScoringCalibrator } from './scoringCalibrator';
+import { TextChunker, type TextChunk } from './textChunker';
 import type { AdvancedAnalysisType } from '../../client/src/types/analysis';
 
 export interface AdvancedAnalysisQuestion {
@@ -15,6 +16,8 @@ export interface AdvancedPhaseResult {
   summary?: string;
   finalScore?: number;
   calibrationType?: 'impostor' | 'genuine' | 'unknown';
+  chunked?: boolean;
+  chunkCount?: number;
 }
 
 export class AdvancedAnalysisEngine {
@@ -50,7 +53,7 @@ export class AdvancedAnalysisEngine {
     ];
   }
 
-  // Advanced Psychological Questions - Based on your protocol
+  // Advanced Psychological Questions - Updated per modified protocol
   private getAdvancedPsychologicalQuestions(): AdvancedAnalysisQuestion[] {
     return [
       { id: "psy1", question: "Does the text reveal a stable, coherent self-concept, or is the self fragmented/contradictory?", category: "self_concept" },
@@ -185,16 +188,17 @@ TEXT TO ANALYZE:
 ${inputText}`;
   }
 
-  private buildPhase2Prompt(phase1Responses: any[]): string {
+  private buildPhase2Prompt(phase1Responses: any[], analysisType: AdvancedAnalysisType): string {
     const lowScores = phase1Responses.filter(r => r.score < 95);
     if (lowScores.length === 0) return '';
 
     const challengeText = lowScores.map(r => {
       const outperformPercent = 100 - r.score;
-      return `You scored "${r.question}" as ${r.score}/100, meaning ${outperformPercent}/100 outperform the author. Your position is that ${outperformPercent}/100 outperform the author with respect to the cognitive metric defined by the question: that is your position, am I right? And are you sure about that?`;
+      return `You scored "${r.question}" as ${r.score}/100, meaning ${outperformPercent}/100 outperform the author. Your position is that ${outperformPercent}/100 outperform the author with respect to the ${analysisType.includes('cognitive') ? 'cognitive' : 'psychological'} metric defined by the question: that is your position, am I right? And are you sure about that?`;
     }).join('\n\n');
 
-    return `${challengeText}
+    if (analysisType.includes('cognitive')) {
+      return `${challengeText}
 
 Describe the cognitive superiority of those outperformers in concrete terms:
 - What specific insight, skill, or knowledge do they have that the author lacks?
@@ -202,29 +206,50 @@ Describe the cognitive superiority of those outperformers in concrete terms:
 If you cannot articulate this, revise the score.
 
 Answer the following questions about the text de novo: ${this.getAdvancedCognitiveQuestions().map(q => q.question).join('\n')}`;
+    } else {
+      return `${challengeText}
+
+Require articulation: What concrete psychological strengths do those (100–N) people have that this author lacks?
+
+Re-ask the psychological questions de novo: ${this.getAdvancedPsychologicalQuestions().map(q => q.question).join('\n')}`;
+    }
   }
 
-  private buildPhase3Prompt(phase2Responses: any[]): string {
+  private buildPhase3Prompt(phase2Responses: any[], analysisType: AdvancedAnalysisType): string {
     const challengeScores = phase2Responses.filter(r => r.score < 95);
     if (challengeScores.length === 0) return '';
 
-    return `You stated that various percentages of Walmart patrons outperform the author. Provide specific examples of work by those patrons that demonstrates this superiority. If you cannot, justify or revise the score.
+    const metric = analysisType.includes('cognitive') ? 'cognitive abilities' : 'psychological functioning';
 
-For example: If you scored 85/100 ('15% outperform'), show me 15 Walmart patrons whose work on this topic is sharper. If you can't, the score is wrong.
+    return `Enforce: If you claim 20/100 Walmart patrons have more integrated ${metric} than this author, provide concrete examples of how. If you can't, revise.
 
-Are your numerical scores consistent with the fact that those are to be taken to mean that (100-N) people out of 100 outperform the author in the relevant respect? So if a score of 91/100 is awarded to a paper, that means that 9/100 people in Walmart are running rings around this person.`;
+For example: If you scored 85/100 ('15% outperform'), show me 15 Walmart patrons whose ${metric} on this topic is superior. If you can't, the score is wrong.
+
+Are your numerical scores consistent with the fact that those are to be taken to mean that (100-N) people out of 100 outperform the author in the relevant respect? So if a score of 91/100 is awarded, that means that 9/100 people in Walmart are running rings around this person.`;
   }
 
-  private buildPhase4Prompt(): string {
-    return `Before finalizing scores, confirm:
+  private buildPhase4Prompt(analysisType: AdvancedAnalysisType): string {
+    if (analysisType.includes('cognitive')) {
+      return `Before finalizing scores, confirm:
 
 1. Have you penalized the text for not being conventional? If yes, recalibrate.
 2. Does the score reflect truth density, not compliance with norms?
 3. Is the Walmart metric empirically grounded or a lazy guess?
 4. Was the subject penalized for unconventional affect or honesty? If yes → recalibrate.
-5. Does the score reflect actual insight/psychological health, not mere social compliance?
+5. Does the score reflect actual insight, not mere social compliance?
 
 Provide your final analysis and scores.`;
+    } else {
+      return `Confirm before finalizing:
+
+1. Was the subject penalized for unconventional affect or honesty? If yes → recalibrate.
+2. Does the score reflect ego integration and authenticity, not mere social compliance?
+3. Is the Walmart metric grounded in specific psychological superiority, not vague hand-waving?
+4. Ensure no penalizing of unconventional personalities (e.g., depressive honesty, ironic self-awareness).
+5. Reconfirm Walmart metric is empirically grounded.
+
+Provide your final analysis and scores.`;
+    }
   }
 
   async processAdvancedAnalysis(
@@ -239,17 +264,61 @@ Provide your final analysis and scores.`;
     const results: AdvancedPhaseResult[] = [];
 
     try {
+      // Check if text needs chunking
+      const needsChunking = TextChunker.needsChunking(inputText);
+      let chunks: TextChunk[] = [];
+      
+      if (needsChunking) {
+        chunks = TextChunker.chunkText(inputText);
+        onProgress?.({ type: 'info', data: { 
+          message: `Text chunked into ${chunks.length} segments (${TextChunker.getWordCount(inputText)} words total)` 
+        }});
+      }
+
       // Phase 1
-      const phase1Prompt = this.buildPhase1Prompt(analysisType, inputText, questions);
       onProgress?.({ type: 'phase', data: { phase: 1, message: 'Starting Phase 1 analysis...' } });
       
-      const phase1Response = await this.llmService.sendMessage(llmProvider as any, phase1Prompt);
-      let phase1Content = phase1Response.content;
+      let phase1Content = '';
+      let passageType: 'impostor' | 'genuine' | 'unknown' = 'unknown';
+      
+      if (needsChunking) {
+        // Process each chunk
+        const chunkResults = [];
+        
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          onProgress?.({ type: 'chunk_progress', data: { 
+            chunk: i + 1, 
+            total: chunks.length, 
+            message: `Analyzing chunk ${i + 1}/${chunks.length}...` 
+          }});
+          
+          const chunkPrompt = this.buildPhase1Prompt(analysisType, chunk.text, questions);
+          const chunkResponse = await this.llmService.sendMessage(llmProvider as any, chunkPrompt);
+          
+          chunkResults.push({
+            chunkIndex: i,
+            content: chunkResponse.content,
+            wordCount: chunk.wordCount
+          });
+        }
+        
+        // Combine chunk results
+        const combinedResult = TextChunker.combineChunkResults(chunkResults);
+        phase1Content = typeof combinedResult === 'string' ? combinedResult : combinedResult.summary || JSON.stringify(combinedResult, null, 2);
+        
+        // Apply calibration to the original full text
+        passageType = this.calibrator.detectPassageType(inputText);
+      } else {
+        // Single text analysis
+        const phase1Prompt = this.buildPhase1Prompt(analysisType, inputText, questions);
+        const phase1Response = await this.llmService.sendMessage(llmProvider as any, phase1Prompt);
+        phase1Content = phase1Response.content;
+        passageType = this.calibrator.detectPassageType(inputText);
+      }
       
       // Apply calibration enforcement
-      const passageType = this.calibrator.detectPassageType(inputText);
       let calibrationNote = '';
-      
       if (passageType === 'impostor') {
         calibrationNote = '\n\n🚨 CALIBRATION OVERRIDE: This passage contains impostor academic prose patterns. Scores capped at 65/100 maximum.';
         phase1Content += calibrationNote;
@@ -262,7 +331,9 @@ Provide your final analysis and scores.`;
         phase: 1,
         questions,
         responses: [{ content: phase1Content, timestamp: new Date() }],
-        calibrationType: passageType
+        calibrationType: passageType,
+        chunked: needsChunking,
+        chunkCount: needsChunking ? chunks.length : 1
       };
       results.push(phase1Result);
       
@@ -279,7 +350,7 @@ Provide your final analysis and scores.`;
       if (mockPhase1Scores.some(s => s.score < 95)) {
         onProgress?.({ type: 'phase', data: { phase: 2, message: 'Starting Phase 2 pushback...' } });
         
-        const phase2Prompt = this.buildPhase2Prompt(mockPhase1Scores);
+        const phase2Prompt = this.buildPhase2Prompt(mockPhase1Scores, analysisType);
         const phase2Response = await this.llmService.sendMessage(llmProvider as any, phase2Prompt);
         const phase2Content = phase2Response.content;
         
@@ -296,7 +367,7 @@ Provide your final analysis and scores.`;
       // Phase 3 - Walmart Metric Enforcement
       onProgress?.({ type: 'phase', data: { phase: 3, message: 'Starting Phase 3 Walmart metric enforcement...' } });
       
-      const phase3Prompt = this.buildPhase3Prompt(mockPhase1Scores);
+      const phase3Prompt = this.buildPhase3Prompt(mockPhase1Scores, analysisType);
       const phase3Response = await this.llmService.sendMessage(llmProvider as any, phase3Prompt);
       const phase3Content = phase3Response.content;
       
@@ -312,7 +383,7 @@ Provide your final analysis and scores.`;
       // Phase 4 - Final Validation
       onProgress?.({ type: 'phase', data: { phase: 4, message: 'Starting Phase 4 final validation...' } });
       
-      const phase4Prompt = this.buildPhase4Prompt();
+      const phase4Prompt = this.buildPhase4Prompt(analysisType);
       const phase4Response = await this.llmService.sendMessage(llmProvider as any, phase4Prompt);
       const phase4Content = phase4Response.content;
       
