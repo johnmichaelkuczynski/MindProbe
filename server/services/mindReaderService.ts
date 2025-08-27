@@ -491,125 +491,178 @@ Do not penalize intense but integrated thought — pathology is disorganization,
     let category = 'Analyzed';
     let finalScore = 0;
 
-    // Extract summary and category
-    const summaryMatches = [
-      /Summary[:\s]+(.*?)(?=Category|Questions|Analysis|$)/si,
-      /\*\*Summary[:\s]*\*\*[:\s]+(.*?)(?=\*\*|Category|Questions|$)/si,
-      /^(.*?)(?=\n.*?Category|\n.*?Questions|\n.*?Analysis|$)/si
+    // Clean response text - remove markdown formatting
+    const cleanResponse = response
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove bold markdown
+      .replace(/\*(.*?)\*/g, '$1')      // Remove italic markdown
+      .replace(/#{1,6}\s/g, '')         // Remove headers
+      .replace(/```[\s\S]*?```/g, '')   // Remove code blocks
+      .trim();
+
+    // Extract summary - look for the actual summary content, not the label
+    const summaryPatterns = [
+      'Summary of the Text',
+      'Summary:',
+      '### Summary',
+      '## Summary'
     ];
 
-    for (const regex of summaryMatches) {
-      const match = response.match(regex);
-      if (match && match[1] && match[1].trim().length > 10) {
-        summary = match[1].trim().replace(/\*\*/g, '').substring(0, 500);
-        break;
-      }
-    }
-
-    const categoryMatches = [
-      /Category[:\s]+(.*?)(?=\n|Questions|Analysis|$)/i,
-      /\*\*Category[:\s]*\*\*[:\s]+(.*?)(?=\n|\*\*|Questions|$)/i,
-      /Classification[:\s]+(.*?)(?=\n|Questions|Analysis|$)/i
-    ];
-
-    for (const regex of categoryMatches) {
-      const match = response.match(regex);
-      if (match && match[1] && match[1].trim()) {
-        category = match[1].trim().replace(/\*\*/g, '').substring(0, 100);
-        break;
-      }
-    }
-
-    // Parse individual question responses more aggressively
-    questions.forEach((question, index) => {
-      const questionNum = index + 1;
-      
-      // Try multiple patterns to find the question response
-      const patterns = [
-        new RegExp(`${questionNum}[.)\\s]*.*?${question.substring(0, 15)}.*?(?=\\n\\d+[.)]|$)`, 'si'),
-        new RegExp(`${questionNum}[.)\\s]*.*?(?=\\n\\d+[.)]|\\n\\n|$)`, 'si'),
-        new RegExp(`Question ${questionNum}.*?(?=Question ${questionNum + 1}|$)`, 'si'),
-        new RegExp(`\\b${questionNum}\\b.*?(?=\\b${questionNum + 1}\\b|$)`, 'si')
-      ];
-
-      let responseText = '';
-      let score = 75; // Default higher score
-      
-      for (const pattern of patterns) {
-        const match = response.match(pattern);
-        if (match && match[0].length > 20) {
-          responseText = match[0];
+    for (const pattern of summaryPatterns) {
+      const index = cleanResponse.indexOf(pattern);
+      if (index !== -1) {
+        const startIndex = index + pattern.length;
+        const endPatterns = ['Category', 'Classification', '\n\n###', '\n\n##', '\n\n1.'];
+        let endIndex = cleanResponse.length;
+        
+        for (const endPattern of endPatterns) {
+          const nextIndex = cleanResponse.indexOf(endPattern, startIndex);
+          if (nextIndex !== -1 && nextIndex < endIndex) {
+            endIndex = nextIndex;
+          }
+        }
+        
+        const extractedSummary = cleanResponse.substring(startIndex, endIndex).trim();
+        if (extractedSummary.length > 20) {
+          summary = extractedSummary.substring(0, 500);
           break;
         }
       }
+    }
 
-      // Extract score more aggressively
-      const scorePatterns = [
-        /(\d+)\/100/g,
-        /Score[:\s]*(\d+)/gi,
-        /Rating[:\s]*(\d+)/gi,
-        /(\d+)\s*out\s*of\s*100/gi,
-        /(\d+)\s*points/gi
-      ];
+    // Extract category
+    const categoryPatterns = [
+      'Category Classification',
+      'Category:',
+      'Classification:',
+      '### Category',
+      '## Category'
+    ];
 
-      for (const pattern of scorePatterns) {
-        const matches = Array.from(responseText.matchAll(pattern));
-        if (matches.length > 0) {
-          const lastMatch = matches[matches.length - 1];
-          const extractedScore = parseInt(lastMatch[1]);
-          if (extractedScore >= 0 && extractedScore <= 100) {
-            score = extractedScore;
+    for (const pattern of categoryPatterns) {
+      const index = cleanResponse.indexOf(pattern);
+      if (index !== -1) {
+        const startIndex = index + pattern.length;
+        const nextLineEnd = cleanResponse.indexOf('\n', startIndex);
+        if (nextLineEnd !== -1) {
+          const extractedCategory = cleanResponse.substring(startIndex, nextLineEnd).trim();
+          if (extractedCategory.length > 0) {
+            category = extractedCategory.substring(0, 100);
             break;
           }
         }
       }
+    }
 
-      // Clean up the answer
-      let answer = responseText
-        .replace(new RegExp(`${questionNum}[.)\\s]*`, 'i'), '')
-        .replace(new RegExp(question.substring(0, 20), 'i'), '')
-        .replace(/\d+\/100.*$/g, '')
-        .replace(/Score[:\s]*\d+/gi, '')
-        .replace(/Rating[:\s]*\d+/gi, '')
-        .trim();
+    // Parse individual question responses using a different approach
+    questions.forEach((question, index) => {
+      const questionNum = index + 1;
+      let score = 80; // Default score, will be overridden by extracted score
+      let answer = '';
 
-      // If answer is too short, extract more context
-      if (answer.length < 20 && responseText.length > 0) {
-        answer = responseText.substring(0, 200).replace(/\d+\/100.*$/g, '').trim();
+      // Find question in response
+      const questionPatterns = [
+        `${questionNum}. `,
+        `${questionNum}) `,
+        `Question ${questionNum}`,
+        question.substring(0, 30)
+      ];
+
+      let questionStartIndex = -1;
+      let nextQuestionIndex = cleanResponse.length;
+
+      for (const pattern of questionPatterns) {
+        const index = cleanResponse.indexOf(pattern);
+        if (index !== -1) {
+          questionStartIndex = index;
+          break;
+        }
       }
 
-      // Fallback answer if still empty
-      if (!answer || answer.length < 10) {
-        answer = `Analysis indicates ${score >= 80 ? 'strong' : score >= 60 ? 'moderate' : 'limited'} performance on this parameter.`;
+      // Find next question start to limit current answer
+      for (let i = questionNum + 1; i <= questions.length; i++) {
+        const nextPatterns = [`${i}. `, `${i}) `, `Question ${i}`];
+        for (const pattern of nextPatterns) {
+          const nextIndex = cleanResponse.indexOf(pattern, questionStartIndex + 1);
+          if (nextIndex !== -1 && nextIndex < nextQuestionIndex) {
+            nextQuestionIndex = nextIndex;
+          }
+        }
+      }
+
+      if (questionStartIndex !== -1) {
+        const responseSection = cleanResponse.substring(questionStartIndex, nextQuestionIndex);
+        
+        // Extract score from this section using multiple patterns
+        const allScorePatterns = [
+          /(\d+)\/100/g,
+          /Score:\s*(\d+)/gi,
+          /Rating:\s*(\d+)/gi,
+          /(\d+)\s*points?/gi,
+          /(\d+)\s*out\s*of\s*100/gi
+        ];
+        
+        for (const pattern of allScorePatterns) {
+          const matches = Array.from(responseSection.matchAll(pattern));
+          if (matches.length > 0) {
+            // Use the last match found (most likely the final score)
+            const lastMatch = matches[matches.length - 1];
+            const scoreNumber = parseInt(lastMatch[1]);
+            if (scoreNumber >= 0 && scoreNumber <= 100) {
+              score = scoreNumber;
+              break;
+            }
+          }
+        }
+
+        // Clean up the answer text
+        answer = responseSection
+          .replace(`${questionNum}. `, '')
+          .replace(`${questionNum}) `, '')
+          .replace(`Question ${questionNum}`, '')
+          .replace(question, '')
+          .replace(/\d+\/100/g, '')
+          .replace(/Score:/gi, '')
+          .replace(/Rating:/gi, '')
+          .replace(/Answer:/gi, '')
+          .trim();
+
+        // Remove leading numbers and punctuation
+        answer = answer.replace(/^[\d\.\)\s]+/, '').trim();
+        
+        // Take first reasonable paragraph
+        const sentences = answer.split(/[.!?]+/);
+        if (sentences.length > 0) {
+          answer = sentences.slice(0, 3).join('. ').trim();
+          if (answer && !answer.endsWith('.')) {
+            answer += '.';
+          }
+        }
+      }
+
+      // Fallback if no answer found
+      if (!answer || answer.length < 20) {
+        const scoreDescriptor = score >= 90 ? 'exceptional' : score >= 80 ? 'strong' : score >= 70 ? 'adequate' : 'limited';
+        answer = `The analysis reveals ${scoreDescriptor} performance on this cognitive dimension based on the text provided.`;
       }
 
       responses.push({
         question,
-        answer: answer.substring(0, 1000), // Limit length
+        answer: answer.substring(0, 800),
         score
       });
     });
 
-    // Calculate final score
+    // Calculate final score as average
     if (responses.length > 0) {
       finalScore = Math.round(responses.reduce((sum, r) => sum + r.score, 0) / responses.length);
     }
 
-    // Try to extract explicit final score
-    const finalScorePatterns = [
-      /(?:final|overall|total).*?score[:\s]*(\d+)\/100/gi,
-      /(?:final|overall|total).*?(\d+)\/100/gi,
-      /Final[:\s]*(\d+)/gi
-    ];
-
-    for (const pattern of finalScorePatterns) {
-      const match = response.match(pattern);
-      if (match) {
-        const extractedScore = parseInt(match[1]);
-        if (extractedScore >= 0 && extractedScore <= 100) {
-          finalScore = extractedScore;
-          break;
-        }
+    // Look for explicit final score in response
+    const finalScoreMatch = cleanResponse.match(/(?:final|overall|total).*?(\d+)(?:\/100)?/i);
+    if (finalScoreMatch) {
+      const extractedScore = parseInt(finalScoreMatch[1]);
+      if (extractedScore >= 0 && extractedScore <= 100) {
+        finalScore = extractedScore;
       }
     }
 
