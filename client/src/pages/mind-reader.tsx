@@ -123,14 +123,10 @@ export default function MindReader() {
     setIsAnalyzing(true);
     setAnalysisResult(null);
     setStreamingMessages([]);
-    setProgressMessage("Connecting to analysis engine...");
+    setProgressMessage("Starting analysis...");
 
     try {
-      eventSourceRef.current = new EventSource('/api/mind-reader/analyze', {
-        
-      });
-
-      // Send the analysis request
+      // Send the analysis request with streaming
       const response = await fetch('/api/mind-reader/analyze', {
         method: 'POST',
         headers: {
@@ -144,47 +140,91 @@ export default function MindReader() {
       });
 
       if (!response.ok) {
-        throw new Error('Analysis request failed');
+        throw new Error(`Analysis request failed: ${response.statusText}`);
       }
+
+      setProgressMessage("Connected - processing...");
 
       // Handle the streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      if (!reader) {
+        throw new Error('No response stream available');
+      }
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+      let buffer = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          console.log('Stream completed');
+          break;
+        }
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
+        // Decode the chunk and add to buffer
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+
+        // Process complete lines from buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.trim() && line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr) {
+                const data = JSON.parse(jsonStr);
+                
+                console.log('Received stream data:', data);
                 
                 if (data.type === 'progress') {
                   setProgressMessage(data.message);
                   setStreamingMessages(prev => [...prev, data.message]);
                 } else if (data.type === 'result') {
                   setAnalysisResult(data.data);
+                  setProgressMessage("Analysis complete - displaying results");
                 } else if (data.type === 'complete') {
                   setIsAnalyzing(false);
-                  setProgressMessage("Analysis complete!");
+                  setProgressMessage("Analysis finished successfully");
                 } else if (data.type === 'error') {
                   throw new Error(data.message);
                 }
-              } catch (parseError) {
-                console.error('Parse error:', parseError);
               }
+            } catch (parseError) {
+              console.error('Parse error for line:', line, parseError);
             }
           }
         }
       }
+
+      // Process any remaining buffer
+      if (buffer.trim() && buffer.startsWith('data: ')) {
+        try {
+          const jsonStr = buffer.slice(6).trim();
+          if (jsonStr) {
+            const data = JSON.parse(jsonStr);
+            if (data.type === 'complete') {
+              setIsAnalyzing(false);
+              setProgressMessage("Analysis finished successfully");
+            }
+          }
+        } catch (parseError) {
+          console.error('Final parse error:', parseError);
+        }
+      }
+
+      if (isAnalyzing) {
+        setIsAnalyzing(false);
+        setProgressMessage("Analysis completed");
+      }
+
     } catch (error) {
       console.error('Analysis error:', error);
-      setProgressMessage("Analysis failed. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setProgressMessage(`Analysis failed: ${errorMessage}`);
       setIsAnalyzing(false);
     }
   };
