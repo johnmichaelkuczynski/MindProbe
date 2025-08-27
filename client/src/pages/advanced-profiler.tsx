@@ -137,9 +137,7 @@ export default function AdvancedProfiler() {
         setIsAnalyzing(false);
         setCurrentPhase(null);
       }
-    },
-    currentAnalysisId,
-    !!currentAnalysisId && isAnalyzing
+    }
   );
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,10 +153,22 @@ export default function AdvancedProfiler() {
       return;
     }
     
-    const analysisData = { ...formData };
-    if (needsChunking && selectedChunks.length > 0) {
-      analysisData.selectedChunks = selectedChunks;
+    if (needsChunking && selectedChunks.length === 0) {
+      setError('Please select at least one chunk to analyze');
+      return;
     }
+    
+    // Prepare text for analysis - either full text or selected chunks
+    let textToAnalyze = formData.inputText;
+    if (needsChunking && selectedChunks.length > 0) {
+      textToAnalyze = selectedChunks.map(index => textChunks[index]?.text).filter(Boolean).join('\n\n---CHUNK BREAK---\n\n');
+    }
+    
+    const analysisData = {
+      ...formData,
+      inputText: textToAnalyze,
+      selectedChunks: needsChunking ? selectedChunks : []
+    };
     
     startAnalysisMutation.mutate(analysisData);
   };
