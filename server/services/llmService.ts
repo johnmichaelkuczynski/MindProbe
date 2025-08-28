@@ -97,23 +97,42 @@ export class LLMService {
   }
 
   private async *streamOpenAIMessage(message: string, systemPrompt?: string): AsyncGenerator<string> {
-    const messages: any[] = [];
-    if (systemPrompt) {
-      messages.push({ role: "system", content: systemPrompt });
-    }
-    messages.push({ role: "user", content: message });
-
-    const stream = await this.openai.chat.completions.create({
-      model: DEFAULT_OPENAI_MODEL,
-      messages,
-      stream: true,
-    });
-
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        yield content;
+    try {
+      const messages: any[] = [];
+      if (systemPrompt) {
+        messages.push({ role: "system", content: systemPrompt });
       }
+      messages.push({ role: "user", content: message });
+
+      console.log(`[OpenAI] Starting stream for message length: ${message.length}`);
+      
+      const stream = await this.openai.chat.completions.create({
+        model: DEFAULT_OPENAI_MODEL,
+        messages,
+        stream: true,
+        max_tokens: 2000,
+        temperature: 0.7,
+      });
+
+      let totalContent = '';
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          totalContent += content;
+          yield content;
+        }
+      }
+      
+      console.log(`[OpenAI] Stream completed. Total content length: ${totalContent.length}`);
+      
+      if (totalContent.length === 0) {
+        console.error('[OpenAI] Warning: No content received from stream');
+        yield "Error: No response received from OpenAI. Please try a different LLM provider.";
+      }
+    } catch (error) {
+      console.error('[OpenAI] Stream error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      yield `Error: OpenAI API failed - ${errorMessage}. Please try a different LLM provider.`;
     }
   }
 
@@ -132,18 +151,35 @@ export class LLMService {
   }
 
   private async *streamAnthropicMessage(message: string, systemPrompt?: string): AsyncGenerator<string> {
-    const stream = await this.anthropic.messages.create({
-      model: DEFAULT_ANTHROPIC_MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: message }],
-      stream: true,
-    });
+    try {
+      console.log(`[Anthropic] Starting stream for message length: ${message.length}`);
+      
+      const stream = await this.anthropic.messages.create({
+        model: DEFAULT_ANTHROPIC_MODEL,
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: message }],
+        stream: true,
+      });
 
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-        yield chunk.delta.text;
+      let totalContent = '';
+      for await (const chunk of stream) {
+        if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+          totalContent += chunk.delta.text;
+          yield chunk.delta.text;
+        }
       }
+      
+      console.log(`[Anthropic] Stream completed. Total content length: ${totalContent.length}`);
+      
+      if (totalContent.length === 0) {
+        console.error('[Anthropic] Warning: No content received from stream');
+        yield "Error: No response received from Anthropic. Please try a different LLM provider.";
+      }
+    } catch (error) {
+      console.error('[Anthropic] Stream error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      yield `Error: Anthropic API failed - ${errorMessage}. Please try a different LLM provider.`;
     }
   }
 
