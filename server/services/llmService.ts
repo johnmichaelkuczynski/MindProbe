@@ -284,48 +284,84 @@ export class LLMService {
   }
 
   private async *streamPerplexityMessage(message: string, systemPrompt?: string): AsyncGenerator<string> {
-    const messages: any[] = [];
-    if (systemPrompt) {
-      messages.push({ role: "system", content: systemPrompt });
-    }
-    messages.push({ role: "user", content: message });
+    try {
+      const messages: any[] = [];
+      if (systemPrompt) {
+        messages.push({ role: "system", content: systemPrompt });
+      }
+      messages.push({ role: "user", content: message });
 
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY || process.env.ZHI4_API_KEY || "default_key"}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
-        messages,
-        stream: true,
-      }),
-    });
+      console.log(`[Perplexity] Starting stream for message length: ${message.length}`);
 
-    const reader = response.body?.getReader();
-    if (!reader) return;
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY || process.env.ZHI4_API_KEY || "default_key"}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-sonar-small-128k-online',
+          messages,
+          stream: true,
+          max_tokens: 2000,
+          temperature: 0.7,
+        }),
+      });
 
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Perplexity] HTTP Error ${response.status}:`, errorText);
+        yield `Error: Perplexity API returned ${response.status} - ${errorText}. Please try a different LLM provider.`;
+        return;
+      }
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '));
+      const reader = response.body?.getReader();
+      if (!reader) {
+        console.error('[Perplexity] No response body reader available');
+        yield "Error: Failed to read Perplexity response stream. Please try a different LLM provider.";
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let totalContent = '';
       
-      for (const line of lines) {
-        const data = line.replace('data: ', '');
-        if (data === '[DONE]') return;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '));
         
-        try {
-          const parsed = JSON.parse(data);
-          const content = parsed.choices[0]?.delta?.content;
-          if (content) yield content;
-        } catch (e) {
-          // Skip invalid JSON
+        for (const line of lines) {
+          const data = line.replace('data: ', '');
+          if (data === '[DONE]') {
+            console.log(`[Perplexity] Stream completed. Total content length: ${totalContent.length}`);
+            return;
+          }
+          
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices[0]?.delta?.content;
+            if (content) {
+              totalContent += content;
+              yield content;
+            }
+          } catch (e) {
+            // Skip invalid JSON - this is normal for SSE streams
+          }
         }
       }
+      
+      console.log(`[Perplexity] Stream completed. Total content length: ${totalContent.length}`);
+      
+      if (totalContent.length === 0) {
+        console.error('[Perplexity] Warning: No content received from stream');
+        yield "Error: No response received from Perplexity. Please try a different LLM provider.";
+      }
+    } catch (error) {
+      console.error('[Perplexity] Stream error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      yield `Error: Perplexity API failed - ${errorMessage}. Please try a different LLM provider.`;
     }
   }
 }
