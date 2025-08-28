@@ -270,7 +270,7 @@ export class LLMService {
         'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY || process.env.ZHI4_API_KEY || "default_key"}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages,
         stream: false,
       }),
@@ -300,7 +300,7 @@ export class LLMService {
           'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY || process.env.ZHI4_API_KEY || "default_key"}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
+          model: 'sonar',
           messages,
           stream: true,
           max_tokens: 2000,
