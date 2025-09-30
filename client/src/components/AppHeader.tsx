@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthDialog } from '@/components/AuthDialog';
+import { BuyCreditsDialog } from '@/components/BuyCreditsDialog';
 import { Button } from '@/components/ui/button';
-import { Coins, LogOut, User } from 'lucide-react';
+import { Coins, LogOut, User, ShoppingCart } from 'lucide-react';
 
 export function AppHeader() {
   const { user, logout } = useAuth();
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -30,6 +32,18 @@ export function AppHeader() {
                   </span>
                   <span className="text-sm text-muted-foreground">credits</span>
                 </div>
+                
+                {!user.isUnlimited && (
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    onClick={() => setBuyCreditsOpen(true)}
+                    data-testid="button-buy-credits"
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-1" />
+                    Buy Credits
+                  </Button>
+                )}
                 
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 text-sm">
@@ -63,6 +77,7 @@ export function AppHeader() {
       </div>
       
       <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
+      <BuyCreditsDialog open={buyCreditsOpen} onOpenChange={setBuyCreditsOpen} />
     </>
   );
 }

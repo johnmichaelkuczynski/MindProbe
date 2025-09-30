@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Loader2 } from "lucide-react";
+import { Maximize2, Loader2, ShoppingCart } from "lucide-react";
 import { useSSE } from "@/hooks/useSSE";
 import { StreamEvent } from "@/types/analysis";
+import { useAuth } from "@/contexts/AuthContext";
+import { BuyCreditsDialog } from "./BuyCreditsDialog";
 
 interface RealTimeResultsProps {
   analysisId: string | null;
@@ -22,6 +24,9 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
   const [results, setResults] = useState<ProcessedResult[]>([]);
   const [streamingStatus, setStreamingStatus] = useState("Ready");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hasInsufficientCredits, setHasInsufficientCredits] = useState(false);
+  const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
+  const { user } = useAuth();
 
   const streamUrl = analysisId ? `/api/analysis/${analysisId}/stream` : null;
   
@@ -70,6 +75,10 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
     } else if (event.type === 'complete') {
       console.log('Analysis complete event received');
       setStreamingStatus("Complete");
+      
+      if (event.data?.hasCredits === false) {
+        setHasInsufficientCredits(true);
+      }
     } else if (event.type === 'error') {
       console.log('Analysis error event received:', event);
       setStreamingStatus("Error");
@@ -157,39 +166,45 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
       });
   };
 
+  const shouldShowPartialResults = !user || (user && !user.isUnlimited && user.credits <= 0) || hasInsufficientCredits;
+  const displayedResults = shouldShowPartialResults && streamingStatus === 'Complete'
+    ? results.slice(0, Math.ceil(results.length / 2))
+    : results;
+
   return (
-    <Card className={`border-border-light shadow-sm ${isFullscreen ? 'fixed inset-4 z-50' : ''}`}>
-      <div className="border-b border-border-light p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Real-Time Analysis Results</h2>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${streamingStatus === 'Streaming' ? 'animate-pulse' : ''}`} />
-              <span className="text-sm text-gray-600" data-testid="text-streaming-status">{streamingStatus}</span>
+    <>
+      <Card className={`border-border-light shadow-sm ${isFullscreen ? 'fixed inset-4 z-50' : ''}`}>
+        <div className="border-b border-border-light p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Real-Time Analysis Results</h2>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${streamingStatus === 'Streaming' ? 'animate-pulse' : ''}`} />
+                <span className="text-sm text-gray-600" data-testid="text-streaming-status">{streamingStatus}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                data-testid="button-fullscreen"
+                className="text-gray-500 hover:text-primary-blue"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              data-testid="button-fullscreen"
-              className="text-gray-500 hover:text-primary-blue"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
           </div>
         </div>
-      </div>
-      
-      <CardContent className="p-6">
-        <div className={`space-y-6 ${isFullscreen ? 'max-h-[calc(100vh-200px)] overflow-y-auto' : 'min-h-96'}`}>
-          
-          {results.length === 0 && !isStreaming && (
-            <div className="text-center py-12 text-gray-500">
-              <p>No analysis results yet. Start an analysis to see real-time results here.</p>
-            </div>
-          )}
+        
+        <CardContent className="p-6">
+          <div className={`space-y-6 ${isFullscreen ? 'max-h-[calc(100vh-200px)] overflow-y-auto' : 'min-h-96'}`}>
+            
+            {results.length === 0 && !isStreaming && (
+              <div className="text-center py-12 text-gray-500">
+                <p>No analysis results yet. Start an analysis to see real-time results here.</p>
+              </div>
+            )}
 
-          {results.map((result, index) => (
+            {displayedResults.map((result, index) => (
             <div 
               key={`${result.type}-${result.questionId || 'summary'}-${index}`}
               className={`analysis-section border-l-4 pl-4 transition-all duration-300 ${
@@ -228,8 +243,30 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
               </div>
             </div>
           )}
+
+          {shouldShowPartialResults && streamingStatus === 'Complete' && results.length > displayedResults.length && (
+            <div className="mt-6 p-6 border-2 border-dashed border-yellow-400 rounded-lg bg-yellow-50 text-center">
+              <p className="text-lg font-semibold text-gray-800 mb-3" data-testid="text-paywall-message">
+                TO GET THE REST BUY CREDITS
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                {!user ? 'Login and purchase credits to see the full analysis' : 'Purchase credits to see the full analysis'}
+              </p>
+              <Button 
+                onClick={() => setBuyCreditsOpen(true)}
+                className="bg-primary-blue hover:bg-blue-600"
+                data-testid="button-paywall-buy-credits"
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Buy Credits Now
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
+    
+    <BuyCreditsDialog open={buyCreditsOpen} onOpenChange={setBuyCreditsOpen} />
+    </>
   );
 }
