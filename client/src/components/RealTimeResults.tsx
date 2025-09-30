@@ -26,6 +26,7 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasInsufficientCredits, setHasInsufficientCredits] = useState(false);
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
   const { user } = useAuth();
 
   const streamUrl = analysisId ? `/api/analysis/${analysisId}/stream` : null;
@@ -74,6 +75,7 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
       });
     } else if (event.type === 'complete') {
       console.log('Analysis complete event received');
+      setIsComplete(true);
       setStreamingStatus("Complete");
       
       if (event.data?.hasCredits === false) {
@@ -88,6 +90,11 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
   });
 
   useEffect(() => {
+    if (isComplete) {
+      // Don't change status if analysis is complete
+      return;
+    }
+    
     if (isConnected) {
       setStreamingStatus("Streaming");
     } else if (error) {
@@ -95,12 +102,26 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
     } else if (!analysisId) {
       setStreamingStatus("Ready");
     }
-  }, [isConnected, error, analysisId]);
+  }, [isConnected, error, analysisId, isComplete]);
+
+  // Check if all results are complete
+  useEffect(() => {
+    if (!isStreaming && results.length > 0) {
+      const allComplete = results.every(r => r.complete);
+      if (allComplete && !isComplete) {
+        console.log('All results are complete, setting status to Complete');
+        setIsComplete(true);
+        setStreamingStatus("Complete");
+      }
+    }
+  }, [results, isStreaming, isComplete]);
 
   useEffect(() => {
     if (!analysisId) {
       setResults([]);
       setStreamingStatus("Ready");
+      setIsComplete(false);
+      setHasInsufficientCredits(false);
     }
   }, [analysisId]);
 
@@ -166,7 +187,7 @@ export function RealTimeResults({ analysisId, isStreaming }: RealTimeResultsProp
       });
   };
 
-  const shouldShowPartialResults = !user || (user && !user.isUnlimited && user.credits <= 0) || hasInsufficientCredits;
+  const shouldShowPartialResults = !user || (!user.isUnlimited && (hasInsufficientCredits || (user.credits ?? 0) <= 0));
   const displayedResults = shouldShowPartialResults && streamingStatus === 'Complete'
     ? results.slice(0, Math.ceil(results.length / 2))
     : results;
