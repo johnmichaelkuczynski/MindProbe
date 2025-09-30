@@ -1,14 +1,189 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import bcrypt from "bcryptjs";
 import { storage } from "./storage";
-import { insertAnalysisSchema, insertDialogueSchema } from "@shared/schema";
+import { db } from "./db";
+import { users, insertAnalysisSchema, insertDialogueSchema, insertUserSchema } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { LLMService, LLMProvider } from "./services/llmService";
 import { FileProcessor, upload } from "./services/fileProcessor";
 import { AnalysisEngine, AnalysisType } from "./services/analysisEngine";
 
+declare module 'express-session' {
+  interface SessionData {
+    userId: string;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const llmService = new LLMService();
   const analysisEngine = new AnalysisEngine();
+
+  // Authentication Routes
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      const validation = insertUserSchema.safeParse({ username, password });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid username or password" });
+      }
+
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+      });
+
+      req.session.userId = user.id;
+      
+      res.json({ 
+        success: true, 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          credits: user.credits,
+          isUnlimited: user.isUnlimited 
+        } 
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Failed to register" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+
+      const user = await storage.getUserByUsername(username.toLowerCase());
+      
+      if (username.toLowerCase() === "jmk") {
+        if (!user) {
+          const newUser = await storage.createUser({
+            username: "jmk",
+            password: "",
+          });
+          
+          await db
+            .update(users)
+            .set({ credits: 999999999, isUnlimited: true })
+            .where(eq(users.id, newUser.id));
+          
+          const updatedUser = await storage.getUser(newUser.id);
+          req.session.userId = newUser.id;
+          
+          return res.json({ 
+            success: true, 
+            user: { 
+              id: updatedUser!.id, 
+              username: updatedUser!.username, 
+              credits: updatedUser!.credits,
+              isUnlimited: updatedUser!.isUnlimited
+            } 
+          });
+        }
+        
+        if (!user.isUnlimited) {
+          await db
+            .update(users)
+            .set({ credits: 999999999, isUnlimited: true })
+            .where(eq(users.id, user.id));
+          
+          const updatedUser = await storage.getUser(user.id);
+          req.session.userId = user.id;
+          
+          return res.json({ 
+            success: true, 
+            user: { 
+              id: updatedUser!.id, 
+              username: updatedUser!.username, 
+              credits: updatedUser!.credits,
+              isUnlimited: updatedUser!.isUnlimited
+            } 
+          });
+        }
+        
+        req.session.userId = user.id;
+        return res.json({ 
+          success: true, 
+          user: { 
+            id: user.id, 
+            username: user.username, 
+            credits: user.credits,
+            isUnlimited: user.isUnlimited
+          } 
+        });
+      }
+      
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const isValidPassword = await bcrypt.compare(password || "", user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      req.session.userId = user.id;
+      
+      res.json({ 
+        success: true, 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          credits: user.credits,
+          isUnlimited: user.isUnlimited 
+        } 
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Failed to login" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) {
+      return res.json({ user: null });
+    }
+
+    try {
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.json({ user: null });
+      }
+
+      res.json({ 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          credits: user.credits,
+          isUnlimited: user.isUnlimited 
+        } 
+      });
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ error: "Failed to get user" });
+    }
+  });
 
   // File upload endpoint
   app.post("/api/upload", upload.single('file'), async (req: any, res) => {
@@ -55,8 +230,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input data" });
       }
 
-      // Create analysis record
-      const analysis = await storage.createAnalysis(validation.data);
+      // Create analysis record (associate with user if logged in)
+      const analysis = await storage.createAnalysis({
+        ...validation.data,
+        userId: req.session.userId || null,
+      });
 
       res.json({
         success: true,
