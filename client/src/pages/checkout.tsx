@@ -9,10 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard, ArrowLeft } from "lucide-react";
 
-if (!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLISHABLE_KEY');
+const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+console.log('Stripe key exists:', !!STRIPE_KEY);
+
+if (!STRIPE_KEY) {
+  console.error('Missing VITE_STRIPE_PUBLISHABLE_KEY environment variable');
 }
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+
+const stripePromise = STRIPE_KEY ? loadStripe(STRIPE_KEY) : null;
 
 const CheckoutForm = ({ credits }: { credits: number }) => {
   const stripe = useStripe();
@@ -84,7 +88,10 @@ export default function Checkout() {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('Checkout useEffect - user:', user?.username, 'authenticated:', !!user);
+    
     if (!user) {
+      console.log('No user, redirecting to auth');
       toast({
         title: "Authentication required",
         description: "Please log in to purchase credits",
@@ -97,30 +104,69 @@ export default function Checkout() {
     // Get credits from URL params if available
     const params = new URLSearchParams(window.location.search);
     const creditAmount = parseInt(params.get('credits') || '10');
+    console.log('Creating payment intent for', creditAmount, 'credits');
     setCredits(creditAmount);
 
     // Create PaymentIntent
+    console.log('Calling /api/create-payment-intent...');
     apiRequest("POST", "/api/create-payment-intent", { credits: creditAmount })
-      .then((res) => res.json())
+      .then((res) => {
+        console.log('Payment intent response status:', res.status);
+        if (!res.ok) {
+          return res.json().then(err => {
+            throw new Error(err.error || `Server error: ${res.status}`);
+          });
+        }
+        return res.json();
+      })
       .then((data) => {
+        console.log('Payment intent data received:', { hasClientSecret: !!data.clientSecret });
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
+          console.log('Client secret set successfully');
         } else {
-          throw new Error('No client secret received');
+          throw new Error('No client secret received from server');
         }
       })
       .catch((error) => {
+        console.error('Payment initialization error:', error);
         toast({
           title: "Error",
-          description: "Failed to initialize payment. Please try again.",
+          description: error.message || "Failed to initialize payment. Please try again.",
           variant: "destructive",
         });
-        console.error('Payment initialization error:', error);
       });
   }, [user, setLocation, toast]);
 
   if (!user) {
     return null;
+  }
+
+  if (!STRIPE_KEY) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Payment Configuration Error</CardTitle>
+            <CardDescription className="text-red-600">
+              Stripe is not configured properly. Please contact support.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600">
+              Error: Missing VITE_STRIPE_PUBLISHABLE_KEY environment variable.
+            </p>
+            <Button 
+              variant="outline" 
+              onClick={() => setLocation('/')}
+              className="mt-4 w-full"
+            >
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (!clientSecret) {
@@ -155,7 +201,7 @@ export default function Checkout() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
+            <Elements stripe={stripePromise!} options={{ clientSecret }}>
               <CheckoutForm credits={credits} />
             </Elements>
           </CardContent>

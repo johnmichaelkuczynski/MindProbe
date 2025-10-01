@@ -267,6 +267,16 @@ User message: ${message}`;
     }
   });
 
+  // Payment system health check
+  app.get("/api/payment-health", async (req, res) => {
+    res.json({
+      stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
+      webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET_MINDPROBE,
+      authenticated: req.isAuthenticated(),
+      user: req.user ? { id: req.user.id, username: req.user.username, credits: req.user.credits } : null
+    });
+  });
+
   // Stripe payment endpoints
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
