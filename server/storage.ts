@@ -1,95 +1,93 @@
-import { type User, type InsertUser, type AnalysisResult, type InsertAnalysis, type DialogueMessage, type InsertDialogue } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type User, type InsertUser, type AnalysisResult, type InsertAnalysis, type DialogueMessage, type InsertDialogue, users, analysisResults, dialogueMessages } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool } from "@neondatabase/serverless";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+const db = drizzle({ client: pool });
+
+const PostgresSessionStore = connectPgSimple(session);
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
-  createAnalysis(analysis: InsertAnalysis): Promise<AnalysisResult>;
+  createAnalysis(analysis: InsertAnalysis & { userId?: string | null }): Promise<AnalysisResult>;
   getAnalysis(id: string): Promise<AnalysisResult | undefined>;
   updateAnalysisResults(id: string, results: any, status: string): Promise<void>;
+  getUserAnalyses(userId: string): Promise<AnalysisResult[]>;
   
   createDialogueMessage(message: InsertDialogue): Promise<DialogueMessage>;
   getDialogueMessages(analysisId: string): Promise<DialogueMessage[]>;
+  
+  sessionStore: any;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private analyses: Map<string, AnalysisResult>;
-  private dialogueMessages: Map<string, DialogueMessage>;
+export class DatabaseStorage implements IStorage {
+  sessionStore: any;
 
   constructor() {
-    this.users = new Map();
-    this.analyses = new Map();
-    this.dialogueMessages = new Map();
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true 
+    });
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
   }
 
-  async createAnalysis(insertAnalysis: InsertAnalysis): Promise<AnalysisResult> {
-    const id = randomUUID();
-    const analysis: AnalysisResult = {
+  async createAnalysis(insertAnalysis: InsertAnalysis & { userId?: string | null }): Promise<AnalysisResult> {
+    const result = await db.insert(analysisResults).values({
       ...insertAnalysis,
-      id,
-      userId: null,
-      additionalContext: insertAnalysis.additionalContext || null,
+      userId: insertAnalysis.userId || null,
       results: {},
-      status: "pending",
-      createdAt: new Date(),
-      completedAt: null,
-    };
-    this.analyses.set(id, analysis);
-    return analysis;
+      status: "pending"
+    }).returning();
+    return result[0];
   }
 
   async getAnalysis(id: string): Promise<AnalysisResult | undefined> {
-    return this.analyses.get(id);
+    const result = await db.select().from(analysisResults).where(eq(analysisResults.id, id)).limit(1);
+    return result[0];
   }
 
   async updateAnalysisResults(id: string, results: any, status: string): Promise<void> {
-    const analysis = this.analyses.get(id);
-    if (analysis) {
-      analysis.results = results;
-      analysis.status = status;
-      if (status === "completed") {
-        analysis.completedAt = new Date();
-      }
-      this.analyses.set(id, analysis);
-    }
+    await db.update(analysisResults)
+      .set({ 
+        results, 
+        status,
+        completedAt: status === "completed" ? new Date() : undefined
+      })
+      .where(eq(analysisResults.id, id));
+  }
+
+  async getUserAnalyses(userId: string): Promise<AnalysisResult[]> {
+    return await db.select().from(analysisResults).where(eq(analysisResults.userId, userId));
   }
 
   async createDialogueMessage(insertMessage: InsertDialogue): Promise<DialogueMessage> {
-    const id = randomUUID();
-    const message: DialogueMessage = {
-      ...insertMessage,
-      id,
-      createdAt: new Date(),
-    };
-    this.dialogueMessages.set(id, message);
-    return message;
+    const result = await db.insert(dialogueMessages).values(insertMessage).returning();
+    return result[0];
   }
 
   async getDialogueMessages(analysisId: string): Promise<DialogueMessage[]> {
-    return Array.from(this.dialogueMessages.values())
-      .filter(msg => msg.analysisId === analysisId)
-      .sort((a, b) => a.createdAt!.getTime() - b.createdAt!.getTime());
+    return await db.select().from(dialogueMessages).where(eq(dialogueMessages.analysisId, analysisId));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

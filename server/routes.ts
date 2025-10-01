@@ -5,8 +5,11 @@ import { insertAnalysisSchema, insertDialogueSchema } from "@shared/schema";
 import { LLMService, LLMProvider } from "./services/llmService";
 import { FileProcessor, upload } from "./services/fileProcessor";
 import { AnalysisEngine, AnalysisType } from "./services/analysisEngine";
+import { setupAuth } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  setupAuth(app);
+  
   const llmService = new LLMService();
   const analysisEngine = new AnalysisEngine();
 
@@ -55,8 +58,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input data" });
       }
 
-      // Create analysis record
-      const analysis = await storage.createAnalysis(validation.data);
+      // Create analysis record, optionally associated with logged-in user
+      const analysis = await storage.createAnalysis({
+        ...validation.data,
+        userId: req.isAuthenticated() ? req.user!.id : null
+      });
 
       res.json({
         success: true,
@@ -236,12 +242,13 @@ User message: ${message}`;
         return res.status(404).json({ error: "Analysis not found" });
       }
 
-      // Create new analysis with concerns incorporated
+      // Create new analysis with concerns incorporated, maintaining user association
       const newAnalysis = await storage.createAnalysis({
         analysisType: analysis.analysisType,
         llmProvider: analysis.llmProvider,
         inputText: analysis.inputText,
-        additionalContext: `${analysis.additionalContext || ''}\n\nUser concerns from previous analysis: ${concerns}`
+        additionalContext: `${analysis.additionalContext || ''}\n\nUser concerns from previous analysis: ${concerns}`,
+        userId: req.isAuthenticated() ? req.user!.id : null
       });
 
       res.json({
