@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { AnalysisSelector } from "@/components/AnalysisSelector";
 import { InputSection } from "@/components/InputSection";
 import { ControlPanel } from "@/components/ControlPanel";
@@ -7,8 +8,9 @@ import { DialogueSystem } from "@/components/DialogueSystem";
 import { ChunkSelector } from "@/components/ChunkSelector";
 import { AnalysisType, LLMProvider } from "@/types/analysis";
 import { useAnalysis } from "@/hooks/useAnalysis";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, HelpCircle, Settings, Plus } from "lucide-react";
+import { Brain, HelpCircle, Settings, Plus, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextChunkingService, TextChunk } from "@shared/textUtils";
 
@@ -25,6 +27,7 @@ export default function Home() {
   const [showChunkSelector, setShowChunkSelector] = useState(false);
   
   const { toast } = useToast();
+  const { user, logoutMutation } = useAuth();
   const {
     currentAnalysisId,
     startAnalysis,
@@ -259,6 +262,36 @@ export default function Home() {
               <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
                 <Settings className="h-5 w-5" />
               </Button>
+              {user ? (
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2 text-sm">
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span className="text-gray-700" data-testid="text-username">{user.username}</span>
+                  </div>
+                  <Button 
+                    onClick={() => logoutMutation.mutate()}
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-gray-600 hover:text-primary-blue"
+                    data-testid="button-logout"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                </div>
+              ) : (
+                <Link href="/auth">
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="bg-primary-blue hover:bg-primary-blue/90"
+                    data-testid="button-login"
+                  >
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Login
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>

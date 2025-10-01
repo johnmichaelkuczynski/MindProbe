@@ -1,6 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+neonConfig.webSocketConstructor = ws;
 
 const app = express();
 app.use(express.json());

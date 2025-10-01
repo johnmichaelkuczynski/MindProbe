@@ -1,9 +1,12 @@
 import { type User, type InsertUser, type AnalysisResult, type InsertAnalysis, type DialogueMessage, type InsertDialogue, users, analysisResults, dialogueMessages } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool } from "@neondatabase/serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+
+neonConfig.webSocketConstructor = ws;
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
 const db = drizzle({ client: pool });
