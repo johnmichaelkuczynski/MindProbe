@@ -14,6 +14,7 @@ Mind Reader is a cognitive/psychological/psychopathological profiler application
   - Idempotency protection via unique constraint on payment intent IDs
   - Conditional credit addition prevents duplicate crediting
   - Comprehensive error handling and user feedback (processing/success/failed/error states)
+  - **Buy Credits button visible to all users** - redirects to login with checkout redirect for non-authenticated users
 - ✓ Analysis results now optionally associate with logged-in user accounts
 - ✓ **PRODUCTION READY**: All security measures, idempotency protection, and error handling verified
 

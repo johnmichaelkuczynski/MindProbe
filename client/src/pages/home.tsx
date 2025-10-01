@@ -292,17 +292,29 @@ export default function Home() {
                   </Button>
                 </div>
               ) : (
-                <Link href="/auth">
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="bg-primary-blue hover:bg-primary-blue/90"
-                    data-testid="button-login"
-                  >
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Login
-                  </Button>
-                </Link>
+                <div className="flex items-center space-x-3">
+                  <Link href="/auth?redirect=/checkout">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-primary-blue border-primary-blue hover:bg-primary-blue hover:text-white"
+                      data-testid="button-buy-credits-guest"
+                    >
+                      Buy Credits
+                    </Button>
+                  </Link>
+                  <Link href="/auth">
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="bg-primary-blue hover:bg-primary-blue/90"
+                      data-testid="button-login"
+                    >
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Login
+                    </Button>
+                  </Link>
+                </div>
               )}
             </div>
           </div>

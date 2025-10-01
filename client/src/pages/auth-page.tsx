@@ -16,7 +16,9 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      setLocation("/");
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect') || '/';
+      setLocation(redirect);
     }
   }, [user, setLocation]);
 
