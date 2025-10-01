@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth-page";
+import Checkout from "@/pages/checkout";
+import CheckoutSuccess from "@/pages/checkout-success";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -13,6 +15,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/checkout-success" component={CheckoutSuccess} />
       <Route component={NotFound} />
     </Switch>
   );

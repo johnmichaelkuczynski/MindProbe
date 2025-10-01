@@ -7,6 +7,10 @@ import { setupVite, serveStatic, log } from "./vite";
 neonConfig.webSocketConstructor = ws;
 
 const app = express();
+
+// Stripe webhook needs raw body for signature verification - mount before JSON parser
+app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

@@ -6,6 +6,12 @@ import { LLMService, LLMProvider } from "./services/llmService";
 import { FileProcessor, upload } from "./services/fileProcessor";
 import { AnalysisEngine, AnalysisType } from "./services/analysisEngine";
 import { setupAuth } from "./auth";
+import Stripe from "stripe";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -259,6 +265,106 @@ User message: ${message}`;
       console.error("Regenerate error:", error);
       res.status(500).json({ error: "Failed to regenerate analysis" });
     }
+  });
+
+  // Stripe payment endpoints
+  app.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Must be logged in to purchase credits" });
+      }
+
+      const { credits } = req.body;
+      
+      const creditAmount = parseInt(credits);
+      if (!creditAmount || creditAmount <= 0 || creditAmount > 1000) {
+        return res.status(400).json({ error: "Invalid credit amount (must be 1-1000)" });
+      }
+
+      // Calculate amount based on credits (e.g., $1 per credit)
+      const amount = creditAmount * 100; // $1.00 per credit in cents
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        metadata: {
+          userId: req.user!.id,
+          credits: creditAmount.toString()
+        }
+      });
+
+      res.json({ clientSecret: paymentIntent.client_secret });
+    } catch (error: any) {
+      console.error("Payment intent error:", error);
+      res.status(500).json({ error: "Error creating payment intent: " + error.message });
+    }
+  });
+
+  // Stripe webhook endpoint (needs raw body for signature verification)
+  app.post("/api/stripe-webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+
+    if (!sig || !process.env.STRIPE_WEBHOOK_SECRET_MINDPROBE) {
+      return res.status(400).send('Webhook signature verification failed');
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET_MINDPROBE
+      );
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const userId = paymentIntent.metadata.userId;
+        const credits = parseInt(paymentIntent.metadata.credits || '0');
+
+        if (userId && credits > 0) {
+          try {
+            // Record the purchase first (with idempotency check)
+            const wasNewPurchase = await storage.recordCreditPurchase({
+              userId,
+              stripeSessionId: paymentIntent.id,
+              stripePaymentIntentId: paymentIntent.id,
+              amount: paymentIntent.amount,
+              credits,
+              status: 'completed'
+            });
+
+            // Only add credits if purchase was newly recorded (prevents duplicate crediting)
+            if (wasNewPurchase) {
+              await storage.addCreditsToUser(userId, credits);
+              console.log(`Added ${credits} credits to user ${userId}`);
+            } else {
+              console.log(`Skipped crediting user ${userId} - payment already processed`);
+            }
+          } catch (error) {
+            console.error('Error processing successful payment:', error);
+          }
+        }
+        break;
+
+      case 'payment_intent.payment_failed':
+        console.log('Payment failed:', event.data.object);
+        break;
+
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({ received: true });
   });
 
   const httpServer = createServer(app);

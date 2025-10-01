@@ -36,7 +36,7 @@ export const creditPurchases = pgTable("credit_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   stripeSessionId: text("stripe_session_id").notNull(),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
   amount: integer("amount").notNull(),
   credits: integer("credits").notNull(),
   status: text("status").notNull(),

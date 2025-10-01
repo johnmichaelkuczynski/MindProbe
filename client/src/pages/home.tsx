@@ -264,10 +264,22 @@ export default function Home() {
               </Button>
               {user ? (
                 <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2 text-sm">
+                  <div className="flex items-center space-x-2 text-sm bg-gray-100 px-3 py-1.5 rounded-lg">
                     <User className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-700" data-testid="text-username">{user.username}</span>
+                    <span className="text-gray-700 font-medium" data-testid="text-username">{user.username}</span>
+                    <span className="text-gray-400">|</span>
+                    <span className="text-primary-blue font-semibold" data-testid="text-credits">{user.credits} credits</span>
                   </div>
+                  <Link href="/checkout?credits=10">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-primary-blue border-primary-blue hover:bg-primary-blue hover:text-white"
+                      data-testid="button-buy-credits"
+                    >
+                      Buy Credits
+                    </Button>
+                  </Link>
                   <Button 
                     onClick={() => logoutMutation.mutate()}
                     variant="ghost" 

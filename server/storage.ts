@@ -17,6 +17,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  addCreditsToUser(userId: string, credits: number): Promise<void>;
   
   createAnalysis(analysis: InsertAnalysis & { userId?: string | null }): Promise<AnalysisResult>;
   getAnalysis(id: string): Promise<AnalysisResult | undefined>;
@@ -25,6 +26,8 @@ export interface IStorage {
   
   createDialogueMessage(message: InsertDialogue): Promise<DialogueMessage>;
   getDialogueMessages(analysisId: string): Promise<DialogueMessage[]>;
+  
+  recordCreditPurchase(purchase: { userId: string; stripeSessionId: string; stripePaymentIntentId: string; amount: number; credits: number; status: string }): Promise<boolean>;
   
   sessionStore: any;
 }
@@ -90,6 +93,40 @@ export class DatabaseStorage implements IStorage {
 
   async getDialogueMessages(analysisId: string): Promise<DialogueMessage[]> {
     return await db.select().from(dialogueMessages).where(eq(dialogueMessages.analysisId, analysisId));
+  }
+
+  async addCreditsToUser(userId: string, credits: number): Promise<void> {
+    const user = await this.getUser(userId);
+    if (user) {
+      await db.update(users)
+        .set({ credits: user.credits + credits })
+        .where(eq(users.id, userId));
+    }
+  }
+
+  async recordCreditPurchase(purchase: { userId: string; stripeSessionId: string; stripePaymentIntentId: string; amount: number; credits: number; status: string }): Promise<boolean> {
+    const { creditPurchases } = await import("@shared/schema");
+    
+    // Check if already processed (idempotency)
+    const existing = await db.select().from(creditPurchases)
+      .where(eq(creditPurchases.stripePaymentIntentId, purchase.stripePaymentIntentId))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      console.log(`Payment ${purchase.stripePaymentIntentId} already processed, skipping`);
+      return false;
+    }
+
+    await db.insert(creditPurchases).values({
+      userId: purchase.userId,
+      stripeSessionId: purchase.stripeSessionId,
+      stripePaymentIntentId: purchase.stripePaymentIntentId,
+      amount: purchase.amount,
+      credits: purchase.credits,
+      status: purchase.status
+    });
+    
+    return true;
   }
 }
 
