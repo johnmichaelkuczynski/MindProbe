@@ -14,7 +14,10 @@ export default function CheckoutSuccess() {
   const [verificationState, setVerificationState] = useState<'processing' | 'success' | 'failed' | 'error'>('processing');
 
   useEffect(() => {
+    console.log('CheckoutSuccess mounted, user:', user?.username);
+    
     if (!user) {
+      console.log('No user, redirecting to auth');
       setLocation('/auth');
       return;
     }
@@ -22,16 +25,29 @@ export default function CheckoutSuccess() {
     // Get payment_intent from URL params (Stripe adds this on redirect)
     const params = new URLSearchParams(window.location.search);
     const paymentIntentId = params.get('payment_intent');
+    console.log('Payment intent ID from URL:', paymentIntentId);
 
     if (paymentIntentId) {
+      console.log('Verifying payment intent:', paymentIntentId);
       // Verify and process the payment on the backend
       apiRequest("POST", "/api/verify-payment", { paymentIntentId })
-        .then((res) => res.json())
+        .then((res) => {
+          console.log('Verify payment response status:', res.status);
+          return res.json();
+        })
         .then((data) => {
+          console.log('Verify payment response data:', data);
           if (data.success) {
+            console.log('Payment verified successfully, credits added:', data.credits);
             // Refetch user data to get updated credits
             queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+            // Also trigger a manual refetch
+            queryClient.refetchQueries({ queryKey: ["/api/user"] });
             setVerificationState('success');
+            toast({
+              title: "Payment Successful!",
+              description: `${data.credits} credits have been added to your account`,
+            });
           } else {
             console.error('Payment verification failed:', data);
             setVerificationState('failed');
@@ -53,6 +69,7 @@ export default function CheckoutSuccess() {
         });
     } else {
       // No payment_intent in URL, shouldn't happen
+      console.error('No payment_intent in URL');
       setVerificationState('error');
     }
   }, [user, setLocation, toast]);

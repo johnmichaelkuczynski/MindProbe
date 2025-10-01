@@ -269,12 +269,38 @@ User message: ${message}`;
 
   // Payment system health check
   app.get("/api/payment-health", async (req, res) => {
-    res.json({
-      stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
-      webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET_MINDPROBE,
-      authenticated: req.isAuthenticated(),
-      user: req.user ? { id: req.user.id, username: req.user.username, credits: req.user.credits } : null
-    });
+    try {
+      let purchases = null;
+      if (req.isAuthenticated() && req.user) {
+        // Get user's credit purchase history
+        purchases = await storage.getUserCreditPurchases(req.user.id);
+      }
+      
+      res.json({
+        stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
+        webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET_MINDPROBE,
+        authenticated: req.isAuthenticated(),
+        user: req.user ? { 
+          id: req.user.id, 
+          username: req.user.username, 
+          credits: req.user.credits 
+        } : null,
+        purchases: purchases
+      });
+    } catch (error) {
+      console.error('Payment health check error:', error);
+      res.json({
+        stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
+        webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET_MINDPROBE,
+        authenticated: req.isAuthenticated(),
+        user: req.user ? { 
+          id: req.user.id, 
+          username: req.user.username, 
+          credits: req.user.credits 
+        } : null,
+        error: 'Failed to fetch purchases'
+      });
+    }
   });
 
   // Stripe payment endpoints

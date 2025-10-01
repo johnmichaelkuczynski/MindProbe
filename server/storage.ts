@@ -28,6 +28,7 @@ export interface IStorage {
   getDialogueMessages(analysisId: string): Promise<DialogueMessage[]>;
   
   recordCreditPurchase(purchase: { userId: string; stripeSessionId: string; stripePaymentIntentId: string; amount: number; credits: number; status: string }): Promise<boolean>;
+  getUserCreditPurchases(userId: string): Promise<any[]>;
   
   sessionStore: any;
 }
@@ -127,6 +128,11 @@ export class DatabaseStorage implements IStorage {
     });
     
     return true;
+  }
+
+  async getUserCreditPurchases(userId: string): Promise<any[]> {
+    const { creditPurchases } = await import("@shared/schema");
+    return await db.select().from(creditPurchases).where(eq(creditPurchases.userId, userId));
   }
 }
 
