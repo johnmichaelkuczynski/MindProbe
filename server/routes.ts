@@ -270,11 +270,14 @@ User message: ${message}`;
   // Stripe payment endpoints
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
+      console.log("Payment intent request received, authenticated:", req.isAuthenticated(), "user:", req.user?.username);
+      
       if (!req.isAuthenticated()) {
         return res.status(401).json({ error: "Must be logged in to purchase credits" });
       }
 
       const { credits } = req.body;
+      console.log("Creating payment intent for", credits, "credits for user", req.user!.username);
       
       const creditAmount = parseInt(credits);
       if (!creditAmount || creditAmount <= 0 || creditAmount > 1000) {
@@ -296,10 +299,69 @@ User message: ${message}`;
         }
       });
 
+      console.log("Payment intent created:", paymentIntent.id);
       res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error: any) {
       console.error("Payment intent error:", error);
       res.status(500).json({ error: "Error creating payment intent: " + error.message });
+    }
+  });
+
+  // Verify payment endpoint (for client-side payment confirmation)
+  app.post("/api/verify-payment", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Must be logged in" });
+      }
+
+      const { paymentIntentId } = req.body;
+      
+      if (!paymentIntentId) {
+        return res.status(400).json({ error: "Payment intent ID required" });
+      }
+
+      console.log("Verifying payment intent:", paymentIntentId, "for user:", req.user!.username);
+
+      // Retrieve the payment intent from Stripe
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      if (paymentIntent.status !== 'succeeded') {
+        return res.json({ success: false, status: paymentIntent.status });
+      }
+
+      // Extract metadata
+      const userId = paymentIntent.metadata.userId;
+      const credits = parseInt(paymentIntent.metadata.credits || '0');
+
+      // Verify this payment belongs to the authenticated user
+      if (userId !== req.user!.id) {
+        return res.status(403).json({ error: "Payment does not belong to this user" });
+      }
+
+      if (credits > 0) {
+        // Record the purchase (with idempotency check)
+        const wasNewPurchase = await storage.recordCreditPurchase({
+          userId,
+          stripeSessionId: paymentIntent.id,
+          stripePaymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount,
+          credits,
+          status: 'completed'
+        });
+
+        // Only add credits if purchase was newly recorded (prevents duplicate crediting)
+        if (wasNewPurchase) {
+          await storage.addCreditsToUser(userId, credits);
+          console.log(`Verified payment: Added ${credits} credits to user ${req.user!.username}`);
+        } else {
+          console.log(`Verified payment: Payment ${paymentIntentId} already processed for user ${req.user!.username}`);
+        }
+      }
+
+      res.json({ success: true, credits });
+    } catch (error: any) {
+      console.error("Payment verification error:", error);
+      res.status(500).json({ error: "Error verifying payment: " + error.message });
     }
   });
 

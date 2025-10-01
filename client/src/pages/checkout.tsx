@@ -25,24 +25,37 @@ const CheckoutForm = ({ credits }: { credits: number }) => {
     e.preventDefault();
 
     if (!stripe || !elements) {
+      console.error('Stripe or elements not initialized');
       return;
     }
 
     setIsProcessing(true);
+    console.log('Confirming payment...');
 
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin + '/checkout-success',
-      },
-    });
+    try {
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin + '/checkout-success',
+        },
+      });
 
-    setIsProcessing(false);
+      setIsProcessing(false);
 
-    if (error) {
+      if (error) {
+        console.error('Payment error:', error);
+        toast({
+          title: "Payment Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error('Unexpected payment error:', err);
+      setIsProcessing(false);
       toast({
-        title: "Payment Failed",
-        description: error.message,
+        title: "Payment Error",
+        description: "An unexpected error occurred during payment",
         variant: "destructive",
       });
     }
