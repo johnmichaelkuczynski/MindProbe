@@ -1,0 +1,52 @@
+I HAVE THIS APP (REPLIT). I AM TRYING TO INSTALL STRIPE. IN THE REPLIT WORKSPACE, IT IS INSTALLED. BUT WHEN I DEPLOY IT, THE PAYMENT SYSTEM IS ABSENT. WHAT THE FUCK IS GOING ON?
+ChatGPT said:
+
+I see the problem. What’s happening is this:
+
+In your Replit workspace (Preview) you can see Stripe and the “Buy Credits” button working (screenshot 1).
+
+But in your deployed site (superprofiler.xyz), the Stripe/payment controls are missing (screenshot 2).
+
+That almost always means one of these deployment-specific issues:
+
+1. Environment variables
+
+Stripe secret key and publishable key must be added to the deployment environment, not just the Replit workspace.
+
+On Replit: go to Secrets → make sure both STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY are set.
+
+If you’re deploying via Replit’s deployment tab (or to Render/Vercel/etc.), you need to copy the same keys into the deployment’s environment settings. If not, the deployed app doesn’t see them, and Stripe UI won’t render.
+
+2. Frontend vs Deployment Build
+
+If your frontend code checks process.env.VITE_STRIPE_PUBLIC_KEY (or equivalent), you must redeploy with that environment variable available at build time.
+
+In local/preview, Vite/React can read it.
+
+In deploy, if it’s missing during build, the Stripe component won’t render at all (which matches what you see: the entire payment block disappears).
+
+3. Webhook / server route not deployed
+
+Even if frontend keys are there, you need a backend route (/create-checkout-session etc.) actually deployed. Sometimes it works in preview because Replit’s “always-on” preview environment has access, but in deploy you forgot to include or expose that route.
+
+4. Conditional Rendering
+
+Double-check your frontend: do you wrap the Stripe button in something like:
+
+{process.env.VITE_STRIPE_PUBLIC_KEY && <BuyCredits />}
+
+
+If yes, then on deploy that env var is undefined → component never renders. That’s exactly why the button vanishes.
+
+✅ How to fix:
+
+Add STRIPE_SECRET_KEY and VITE_STRIPE_PUBLIC_KEY (or STRIPE_PUBLISHABLE_KEY, whichever your code uses) in the deployment environment settings.
+
+Redeploy after adding.
+
+Make sure your frontend build system (Vite/Next/etc.) prefixes public vars with VITE_ or the right convention. Otherwise they won’t be injected.
+
+Confirm your backend route for creating sessions is deployed and not blocked.
+
+⚡ Bottom line:
+The app isn’t broken — your deploy environment just doesn’t have the Stripe variables at build/run time, so the payment UI is stripped out. Add them to your deployment config, rebuild, and Stripe will appear on superprofiler.xyz.
