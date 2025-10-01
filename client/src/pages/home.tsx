@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { AnalysisSelector } from "@/components/AnalysisSelector";
 import { InputSection } from "@/components/InputSection";
 import { ControlPanel } from "@/components/ControlPanel";
@@ -232,25 +231,38 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      <AppHeader />
-      
-      {/* Action Buttons */}
-      <div className="bg-white border-b">
+      {/* Header */}
+      <header className="bg-white border-b border-border-light">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-end py-2 space-x-2">
-            <Button 
-              onClick={handleNewAnalysis}
-              variant="outline" 
-              size="sm" 
-              className="text-primary-blue border-primary-blue hover:bg-primary-blue hover:text-white"
-              data-testid="button-new-analysis"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Analysis
-            </Button>
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <Brain className="text-primary-blue text-2xl h-8 w-8" />
+              <h1 className="text-2xl font-bold text-text-primary">Mind Reader</h1>
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                Cognitive Profiler
+              </span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button 
+                onClick={handleNewAnalysis}
+                variant="outline" 
+                size="sm" 
+                className="text-primary-blue border-primary-blue hover:bg-primary-blue hover:text-white"
+                data-testid="button-new-analysis"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Analysis
+              </Button>
+              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
+                <HelpCircle className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary-blue">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Chunk Selector Modal */}
       {showChunkSelector && (

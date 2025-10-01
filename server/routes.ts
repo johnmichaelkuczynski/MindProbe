@@ -1,345 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import bcrypt from "bcryptjs";
-import Stripe from "stripe";
 import { storage } from "./storage";
-import { db } from "./db";
-import { users, insertAnalysisSchema, insertDialogueSchema, insertUserSchema } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { insertAnalysisSchema, insertDialogueSchema } from "@shared/schema";
 import { LLMService, LLMProvider } from "./services/llmService";
 import { FileProcessor, upload } from "./services/fileProcessor";
 import { AnalysisEngine, AnalysisType } from "./services/analysisEngine";
-import { CREDIT_PRICING, getCreditsForPurchase, type ZHIModel } from "./creditPricing";
-import { calculateTotalWords } from "./creditUtils";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil",
-});
-
-declare module 'express-session' {
-  interface SessionData {
-    userId: string;
-  }
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const llmService = new LLMService();
   const analysisEngine = new AnalysisEngine();
-
-  // Authentication Routes
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      const validation = insertUserSchema.safeParse({ username, password });
-      if (!validation.success) {
-        return res.status(400).json({ error: "Invalid username or password" });
-      }
-
-      const normalizedUsername = username.toLowerCase();
-      
-      const existingUser = await storage.getUserByUsername(normalizedUsername);
-      if (existingUser) {
-        return res.status(409).json({ error: "Username already exists" });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({
-        username: normalizedUsername,
-        password: hashedPassword,
-      });
-
-      req.session.userId = user.id;
-      
-      res.json({ 
-        success: true, 
-        user: { 
-          id: user.id, 
-          username: user.username, 
-          credits: user.credits,
-          isUnlimited: user.isUnlimited 
-        } 
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ error: "Failed to register" });
-    }
-  });
-
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username) {
-        return res.status(400).json({ error: "Username is required" });
-      }
-
-      const user = await storage.getUserByUsername(username.toLowerCase());
-      
-      if (username.toLowerCase() === "jmk") {
-        if (!user) {
-          const newUser = await storage.createUser({
-            username: "jmk",
-            password: "",
-          });
-          
-          await db
-            .update(users)
-            .set({ credits: 999999999, isUnlimited: true })
-            .where(eq(users.id, newUser.id));
-          
-          const updatedUser = await storage.getUser(newUser.id);
-          req.session.userId = newUser.id;
-          
-          return res.json({ 
-            success: true, 
-            user: { 
-              id: updatedUser!.id, 
-              username: updatedUser!.username, 
-              credits: updatedUser!.credits,
-              isUnlimited: updatedUser!.isUnlimited
-            } 
-          });
-        }
-        
-        if (!user.isUnlimited) {
-          await db
-            .update(users)
-            .set({ credits: 999999999, isUnlimited: true })
-            .where(eq(users.id, user.id));
-          
-          const updatedUser = await storage.getUser(user.id);
-          req.session.userId = user.id;
-          
-          return res.json({ 
-            success: true, 
-            user: { 
-              id: updatedUser!.id, 
-              username: updatedUser!.username, 
-              credits: updatedUser!.credits,
-              isUnlimited: updatedUser!.isUnlimited
-            } 
-          });
-        }
-        
-        req.session.userId = user.id;
-        return res.json({ 
-          success: true, 
-          user: { 
-            id: user.id, 
-            username: user.username, 
-            credits: user.credits,
-            isUnlimited: user.isUnlimited
-          } 
-        });
-      }
-      
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      const isValidPassword = await bcrypt.compare(password || "", user.password);
-      if (!isValidPassword) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      req.session.userId = user.id;
-      
-      res.json({ 
-        success: true, 
-        user: { 
-          id: user.id, 
-          username: user.username, 
-          credits: user.credits,
-          isUnlimited: user.isUnlimited 
-        } 
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Failed to login" });
-    }
-  });
-
-  app.post("/api/auth/logout", async (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Failed to logout" });
-      }
-      res.json({ success: true });
-    });
-  });
-
-  app.get("/api/auth/me", async (req, res) => {
-    if (!req.session.userId) {
-      return res.json({ user: null });
-    }
-
-    try {
-      const user = await storage.getUser(req.session.userId);
-      if (!user) {
-        return res.json({ user: null });
-      }
-
-      res.json({ 
-        user: { 
-          id: user.id, 
-          username: user.username, 
-          credits: user.credits,
-          isUnlimited: user.isUnlimited 
-        } 
-      });
-    } catch (error) {
-      console.error("Get user error:", error);
-      res.status(500).json({ error: "Failed to get user" });
-    }
-  });
-
-  // Stripe: Get pricing tiers
-  app.get("/api/credits/pricing", async (req, res) => {
-    res.json(CREDIT_PRICING);
-  });
-
-  // Stripe: Create checkout session
-  app.post("/api/credits/create-checkout", async (req, res) => {
-    try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Must be logged in to purchase credits" });
-      }
-
-      const { model, priceInCents } = req.body;
-      
-      if (!model || !priceInCents) {
-        return res.status(400).json({ error: "Missing model or price" });
-      }
-
-      const credits = getCreditsForPurchase(model as ZHIModel, priceInCents);
-      if (!credits) {
-        return res.status(400).json({ error: "Invalid price tier" });
-      }
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'usd',
-              product_data: {
-                name: `${CREDIT_PRICING[model as ZHIModel].name} Credits`,
-                description: `${credits.toLocaleString()} word credits for ${CREDIT_PRICING[model as ZHIModel].name}`,
-              },
-              unit_amount: priceInCents,
-            },
-            quantity: 1,
-          },
-        ],
-        mode: 'payment',
-        success_url: `${req.headers.origin || 'http://localhost:5000'}?purchase=success`,
-        cancel_url: `${req.headers.origin || 'http://localhost:5000'}?purchase=cancelled`,
-        client_reference_id: req.session.userId,
-        payment_intent_data: {
-          metadata: {
-            userId: req.session.userId,
-            model,
-            credits: credits.toString(),
-            sessionId: '', // Will be set by Stripe
-          },
-        },
-        metadata: {
-          userId: req.session.userId,
-          model,
-          credits: credits.toString(),
-        },
-      });
-
-      await storage.createCreditPurchase({
-        userId: req.session.userId,
-        stripeSessionId: session.id,
-        stripePaymentIntentId: null,
-        amount: priceInCents,
-        credits,
-        status: 'pending',
-      });
-
-      res.json({ sessionId: session.id, url: session.url });
-    } catch (error) {
-      console.error("Checkout error:", error);
-      res.status(500).json({ error: "Failed to create checkout session" });
-    }
-  });
-
-  // Stripe: Webhook handler
-  app.post("/api/stripe/webhook", async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    
-    if (!sig) {
-      return res.status(400).send('No signature');
-    }
-
-    let event;
-
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET_MINDPROBE!
-      );
-    } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      
-      let userId = session.metadata?.userId || session.client_reference_id;
-      let credits = parseInt(session.metadata?.credits || '0');
-      
-      if (!userId || !credits) {
-        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string);
-        userId = paymentIntent.metadata?.userId || userId;
-        credits = parseInt(paymentIntent.metadata?.credits || '0') || credits;
-      }
-      
-      if (!userId || !credits) {
-        console.error('Missing userId or credits in webhook:', { sessionId: session.id, userId, credits });
-        return res.status(400).json({ error: 'Missing metadata' });
-      }
-      
-      try {
-        const user = await storage.getUser(userId);
-        if (!user) {
-          console.error('User not found in webhook:', userId);
-          await storage.updateCreditPurchaseStatus(session.id, 'failed');
-          return res.status(404).json({ error: 'User not found' });
-        }
-        
-        const newCredits = user.credits + credits;
-        await storage.updateUserCredits(userId, newCredits);
-        
-        await storage.updateCreditPurchaseStatus(
-          session.id,
-          'completed',
-          session.payment_intent as string
-        );
-        
-        console.log(`Successfully added ${credits} credits to user ${userId}. New balance: ${newCredits}`);
-      } catch (error) {
-        console.error('Error processing webhook:', error);
-        try {
-          await storage.updateCreditPurchaseStatus(session.id, 'failed');
-        } catch (updateError) {
-          console.error('Failed to update purchase status:', updateError);
-        }
-        return res.status(500).json({ error: 'Failed to process payment' });
-      }
-    }
-
-    res.json({ received: true });
-  });
 
   // File upload endpoint
   app.post("/api/upload", upload.single('file'), async (req: any, res) => {
@@ -386,11 +55,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input data" });
       }
 
-      // Create analysis record (associate with user if logged in)
-      const analysis = await storage.createAnalysis({
-        ...validation.data,
-        userId: req.session.userId || null,
-      });
+      // Create analysis record
+      const analysis = await storage.createAnalysis(validation.data);
 
       res.json({
         success: true,
@@ -421,15 +87,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Access-Control-Allow-Headers': 'Cache-Control'
       });
 
-      // Check if user has credits (if logged in)
-      let hasCredits = true;
-      if (analysis.userId) {
-        const user = await storage.getUser(analysis.userId);
-        if (user && !user.isUnlimited && user.credits <= 0) {
-          hasCredits = false;
-        }
-      }
-
       // Process analysis with streaming
       try {
         const results: any[] = [];
@@ -445,34 +102,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results.push(result);
         }
 
-        // Calculate total words and deduct credits
-        const totalWords = calculateTotalWords(results);
-        let creditsDeducted = 0;
-        
-        if (analysis.userId && totalWords > 0) {
-          const user = await storage.getUser(analysis.userId);
-          if (user && !user.isUnlimited) {
-            const deducted = await storage.deductCredits(analysis.userId, totalWords);
-            if (deducted) {
-              creditsDeducted = totalWords;
-              console.log(`Deducted ${totalWords} credits from user ${analysis.userId}`);
-            }
-          }
-        }
-
         // Update analysis with final results
         await storage.updateAnalysisResults(id, results, "completed");
         
-        // Send completion event with credit info
-        res.write(`data: ${JSON.stringify({ 
-          type: 'complete', 
-          data: { 
-            analysisId: id,
-            wordsGenerated: totalWords,
-            creditsDeducted,
-            hasCredits
-          } 
-        })}\n\n`);
+        // Send completion event
+        res.write(`data: ${JSON.stringify({ type: 'complete', data: { analysisId: id } })}\n\n`);
         
       } catch (streamError) {
         console.error("Streaming error:", streamError);

@@ -7,8 +7,6 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  credits: integer("credits").notNull().default(0),
-  isUnlimited: boolean("is_unlimited").notNull().default(false),
 });
 
 export const analysisResults = pgTable("analysis_results", {
@@ -32,18 +30,6 @@ export const dialogueMessages = pgTable("dialogue_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const creditPurchases = pgTable("credit_purchases", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  stripeSessionId: text("stripe_session_id").notNull(),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
-  amount: integer("amount").notNull(), // in cents
-  credits: integer("credits").notNull(),
-  status: text("status").notNull(), // 'pending', 'completed', 'failed'
-  createdAt: timestamp("created_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-});
-
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -62,20 +48,9 @@ export const insertDialogueSchema = createInsertSchema(dialogueMessages).pick({
   message: true,
 });
 
-export const insertCreditPurchaseSchema = createInsertSchema(creditPurchases).pick({
-  userId: true,
-  stripeSessionId: true,
-  stripePaymentIntentId: true,
-  amount: true,
-  credits: true,
-  status: true,
-});
-
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type AnalysisResult = typeof analysisResults.$inferSelect;
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
 export type DialogueMessage = typeof dialogueMessages.$inferSelect;
 export type InsertDialogue = z.infer<typeof insertDialogueSchema>;
-export type CreditPurchase = typeof creditPurchases.$inferSelect;
-export type InsertCreditPurchase = z.infer<typeof insertCreditPurchaseSchema>;
