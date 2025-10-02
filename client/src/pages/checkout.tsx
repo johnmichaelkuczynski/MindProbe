@@ -167,42 +167,71 @@ export default function Checkout() {
     }
   }, [user, setLocation, toast]);
 
-  const handleSelectPackage = (credits: number) => {
-    if (!user) return;
+  const handleSelectPackage = async (credits: number) => {
+    if (!user) {
+      console.error('No user found');
+      return;
+    }
     
-    console.log('Creating payment intent for', credits, 'credits');
+    console.log('=== HANDLE SELECT PACKAGE ===');
+    console.log('User:', user.username, 'Credits to buy:', credits);
     setSelectedCredits(credits);
 
-    // Create PaymentIntent
-    console.log('Calling /api/create-payment-intent...');
-    apiRequest("POST", "/api/create-payment-intent", { credits })
-      .then((res) => {
-        console.log('Payment intent response status:', res.status);
-        if (!res.ok) {
-          return res.json().then(err => {
-            throw new Error(err.error || `Server error: ${res.status}`);
-          });
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log('Payment intent data received:', { hasClientSecret: !!data.clientSecret });
-        if (data.clientSecret) {
-          setClientSecret(data.clientSecret);
-          console.log('Client secret set successfully');
-        } else {
-          throw new Error('No client secret received from server');
-        }
-      })
-      .catch((error) => {
-        console.error('Payment initialization error:', error);
-        setSelectedCredits(null);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to initialize payment. Please try again.",
-          variant: "destructive",
-        });
+    try {
+      // Create PaymentIntent with timeout
+      console.log('Calling /api/create-payment-intent with credits:', credits);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const res = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credits }),
+        credentials: 'include',
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      console.log('Payment intent response status:', res.status, 'ok:', res.ok);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Server error response:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          throw new Error(`Server error: ${res.status} - ${errorText}`);
+        }
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log('Payment intent data received:', data);
+      
+      if (data.clientSecret) {
+        setClientSecret(data.clientSecret);
+        console.log('Client secret set successfully!');
+      } else {
+        console.error('No client secret in response:', data);
+        throw new Error('No client secret received from server');
+      }
+    } catch (error: any) {
+      console.error('=== PAYMENT INITIALIZATION ERROR ===');
+      console.error('Error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      setSelectedCredits(null);
+      setClientSecret("");
+      
+      toast({
+        title: "Payment Error",
+        description: error.message || "Failed to initialize payment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!user) {
