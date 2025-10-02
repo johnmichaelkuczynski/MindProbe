@@ -80,9 +80,16 @@ const CheckoutForm = ({ credits }: { credits: number }) => {
   );
 };
 
+const PRICING_OPTIONS = [
+  { credits: 5, price: 5, popular: false },
+  { credits: 10, price: 10, popular: true },
+  { credits: 20, price: 20, popular: false },
+  { credits: 50, price: 50, popular: false },
+];
+
 export default function Checkout() {
   const [clientSecret, setClientSecret] = useState("");
-  const [credits, setCredits] = useState(10);
+  const [selectedCredits, setSelectedCredits] = useState<number | null>(null);
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -103,13 +110,21 @@ export default function Checkout() {
 
     // Get credits from URL params if available
     const params = new URLSearchParams(window.location.search);
-    const creditAmount = parseInt(params.get('credits') || '10');
-    console.log('Creating payment intent for', creditAmount, 'credits');
-    setCredits(creditAmount);
+    const creditAmount = parseInt(params.get('credits') || '0');
+    if (creditAmount > 0) {
+      setSelectedCredits(creditAmount);
+    }
+  }, [user, setLocation, toast]);
+
+  const handleSelectPackage = (credits: number) => {
+    if (!user) return;
+    
+    console.log('Creating payment intent for', credits, 'credits');
+    setSelectedCredits(credits);
 
     // Create PaymentIntent
     console.log('Calling /api/create-payment-intent...');
-    apiRequest("POST", "/api/create-payment-intent", { credits: creditAmount })
+    apiRequest("POST", "/api/create-payment-intent", { credits })
       .then((res) => {
         console.log('Payment intent response status:', res.status);
         if (!res.ok) {
@@ -130,13 +145,14 @@ export default function Checkout() {
       })
       .catch((error) => {
         console.error('Payment initialization error:', error);
+        setSelectedCredits(null);
         toast({
           title: "Error",
           description: error.message || "Failed to initialize payment. Please try again.",
           variant: "destructive",
         });
       });
-  }, [user, setLocation, toast]);
+  };
 
   if (!user) {
     return null;
@@ -169,40 +185,129 @@ export default function Checkout() {
     );
   }
 
-  if (!clientSecret) {
+  // Show pricing selection if no package selected yet
+  if (!selectedCredits || !clientSecret) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
+      <div className="min-h-screen bg-white dark:bg-gray-950 py-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <Button 
+            variant="ghost" 
+            onClick={() => setLocation('/')}
+            className="mb-6"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Home
+          </Button>
+
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Purchase Credits</h1>
+            <p className="text-gray-600">Select a credit package to get started with your analyses</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {PRICING_OPTIONS.map((option) => (
+              <Card 
+                key={option.credits}
+                className={`relative cursor-pointer transition-all hover:shadow-lg ${
+                  option.popular ? 'ring-2 ring-primary' : ''
+                }`}
+                onClick={() => handleSelectPackage(option.credits)}
+                data-testid={`package-${option.credits}`}
+              >
+                {option.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-primary text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <CardHeader className="text-center pb-4">
+                  <CardTitle className="text-2xl">{option.credits} Credits</CardTitle>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold">${option.price}</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <p className="text-sm text-gray-600 mb-4">
+                    ${(option.price / option.credits).toFixed(2)} per credit
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    variant={option.popular ? "default" : "outline"}
+                    disabled={selectedCredits === option.credits && !clientSecret}
+                  >
+                    {selectedCredits === option.credits && !clientSecret ? (
+                      <>
+                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Select Package'
+                    )}
+                  </Button>
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs text-gray-500">
+                      {option.credits === 5 && "Perfect for trying out"}
+                      {option.credits === 10 && "Great for regular use"}
+                      {option.credits === 20 && "Best value for power users"}
+                      {option.credits === 50 && "Maximum savings"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <CreditCard className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">What are credits?</h3>
+                  <p className="text-sm text-gray-600">
+                    Credits are used to run analyses on Mind Reader. Each analysis type requires 1 credit. 
+                    Credits never expire and can be used anytime.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
+  // Show payment form when package is selected
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 py-12 px-4">
       <div className="max-w-md mx-auto">
         <Button 
           variant="ghost" 
-          onClick={() => setLocation('/')}
+          onClick={() => {
+            setSelectedCredits(null);
+            setClientSecret("");
+          }}
           className="mb-6"
-          data-testid="button-back"
+          data-testid="button-back-to-pricing"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Home
+          Back to Pricing
         </Button>
 
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2 mb-2">
               <CreditCard className="h-6 w-6 text-primary" />
-              <CardTitle>Purchase Credits</CardTitle>
+              <CardTitle>Complete Your Purchase</CardTitle>
             </div>
             <CardDescription>
-              You're purchasing {credits} credits for ${credits}.00
+              You're purchasing {selectedCredits} credits for ${selectedCredits}.00
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Elements stripe={stripePromise!} options={{ clientSecret }}>
-              <CheckoutForm credits={credits} />
+              <CheckoutForm credits={selectedCredits} />
             </Elements>
           </CardContent>
         </Card>
