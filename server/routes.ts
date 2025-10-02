@@ -346,35 +346,52 @@ User message: ${message}`;
   // Verify payment endpoint (for client-side payment confirmation)
   app.post("/api/verify-payment", async (req, res) => {
     try {
+      console.log("=== VERIFY PAYMENT CALLED ===");
+      console.log("Authenticated:", req.isAuthenticated());
+      console.log("User:", req.user?.username, "ID:", req.user?.id);
+      console.log("Request body:", req.body);
+      
       if (!req.isAuthenticated()) {
+        console.log("Not authenticated, returning 401");
         return res.status(401).json({ error: "Must be logged in" });
       }
 
       const { paymentIntentId } = req.body;
       
       if (!paymentIntentId) {
+        console.log("No payment intent ID provided");
         return res.status(400).json({ error: "Payment intent ID required" });
       }
 
-      console.log("Verifying payment intent:", paymentIntentId, "for user:", req.user!.username);
+      console.log("Retrieving payment intent from Stripe:", paymentIntentId);
 
       // Retrieve the payment intent from Stripe
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      console.log("Payment intent retrieved:", {
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        amount: paymentIntent.amount,
+        metadata: paymentIntent.metadata
+      });
 
       if (paymentIntent.status !== 'succeeded') {
+        console.log("Payment not succeeded, status:", paymentIntent.status);
         return res.json({ success: false, status: paymentIntent.status });
       }
 
       // Extract metadata
       const userId = paymentIntent.metadata.userId;
       const credits = parseInt(paymentIntent.metadata.credits || '0');
+      console.log("Extracted from metadata - userId:", userId, "credits:", credits);
 
       // Verify this payment belongs to the authenticated user
       if (userId !== req.user!.id) {
+        console.log("User ID mismatch! Payment userId:", userId, "Authenticated userId:", req.user!.id);
         return res.status(403).json({ error: "Payment does not belong to this user" });
       }
 
       if (credits > 0) {
+        console.log("Recording credit purchase...");
         // Record the purchase (with idempotency check)
         const wasNewPurchase = await storage.recordCreditPurchase({
           userId,
@@ -385,17 +402,24 @@ User message: ${message}`;
           status: 'completed'
         });
 
+        console.log("Was new purchase:", wasNewPurchase);
+
         // Only add credits if purchase was newly recorded (prevents duplicate crediting)
         if (wasNewPurchase) {
+          console.log(`Adding ${credits} credits to user ${req.user!.username}...`);
           await storage.addCreditsToUser(userId, credits);
-          console.log(`Verified payment: Added ${credits} credits to user ${req.user!.username}`);
+          console.log(`SUCCESS: Added ${credits} credits to user ${req.user!.username}`);
         } else {
-          console.log(`Verified payment: Payment ${paymentIntentId} already processed for user ${req.user!.username}`);
+          console.log(`SKIPPED: Payment ${paymentIntentId} already processed for user ${req.user!.username}`);
         }
+      } else {
+        console.log("No credits to add (credits <= 0)");
       }
 
+      console.log("=== VERIFY PAYMENT SUCCESS ===");
       res.json({ success: true, credits });
     } catch (error: any) {
+      console.error("=== VERIFY PAYMENT ERROR ===");
       console.error("Payment verification error:", error);
       res.status(500).json({ error: "Error verifying payment: " + error.message });
     }
