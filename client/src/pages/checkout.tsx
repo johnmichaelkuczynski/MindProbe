@@ -81,10 +81,61 @@ const CheckoutForm = ({ credits }: { credits: number }) => {
 };
 
 const PRICING_OPTIONS = [
-  { credits: 5, price: 5, popular: false },
-  { credits: 10, price: 10, popular: true },
-  { credits: 20, price: 20, popular: false },
-  { credits: 50, price: 50, popular: false },
+  { 
+    price: 5, 
+    credits: 5,
+    popular: false,
+    words: {
+      zhi1: '4,275,000',
+      zhi2: '106,840',
+      zhi3: '702,000',
+      zhi4: '6,410,255'
+    }
+  },
+  { 
+    price: 10, 
+    credits: 10,
+    popular: true,
+    words: {
+      zhi1: '8,977,500',
+      zhi2: '224,360',
+      zhi3: '1,474,200',
+      zhi4: '13,461,530'
+    }
+  },
+  { 
+    price: 25, 
+    credits: 25,
+    popular: false,
+    words: {
+      zhi1: '23,512,500',
+      zhi2: '587,625',
+      zhi3: '3,861,000',
+      zhi4: '35,256,400'
+    }
+  },
+  { 
+    price: 50, 
+    credits: 50,
+    popular: false,
+    words: {
+      zhi1: '51,300,000',
+      zhi2: '1,282,100',
+      zhi3: '8,424,000',
+      zhi4: '76,923,050'
+    }
+  },
+  { 
+    price: 100, 
+    credits: 100,
+    popular: false,
+    words: {
+      zhi1: '115,425,000',
+      zhi2: '2,883,400',
+      zhi3: '18,954,000',
+      zhi4: '173,176,900'
+    }
+  },
 ];
 
 export default function Checkout() {
@@ -205,15 +256,15 @@ export default function Checkout() {
             <p className="text-gray-600">Select a credit package to get started with your analyses</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             {PRICING_OPTIONS.map((option) => (
               <Card 
-                key={option.credits}
+                key={option.price}
                 className={`relative cursor-pointer transition-all hover:shadow-lg ${
                   option.popular ? 'ring-2 ring-primary' : ''
                 }`}
                 onClick={() => handleSelectPackage(option.credits)}
-                data-testid={`package-${option.credits}`}
+                data-testid={`package-${option.price}`}
               >
                 {option.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -223,15 +274,36 @@ export default function Checkout() {
                   </div>
                 )}
                 <CardHeader className="text-center pb-4">
-                  <CardTitle className="text-2xl">{option.credits} Credits</CardTitle>
-                  <div className="mt-4">
+                  <div className="mb-2">
                     <span className="text-4xl font-bold">${option.price}</span>
                   </div>
+                  <CardTitle className="text-lg">
+                    {option.price === 5 && "Starter"}
+                    {option.price === 10 && "Basic"}
+                    {option.price === 25 && "Pro"}
+                    {option.price === 50 && "Premium"}
+                    {option.price === 100 && "Enterprise"}
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="text-center">
-                  <p className="text-sm text-gray-600 mb-4">
-                    ${(option.price / option.credits).toFixed(2)} per credit
-                  </p>
+                <CardContent>
+                  <div className="space-y-2 mb-4 text-xs">
+                    <div className="flex justify-between items-center py-1.5 border-b">
+                      <span className="text-gray-600">ZHI 1:</span>
+                      <span className="font-semibold">{option.words.zhi1}w</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b">
+                      <span className="text-gray-600">ZHI 2:</span>
+                      <span className="font-semibold">{option.words.zhi2}w</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b">
+                      <span className="text-gray-600">ZHI 3:</span>
+                      <span className="font-semibold">{option.words.zhi3}w</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5">
+                      <span className="text-gray-600">ZHI 4:</span>
+                      <span className="font-semibold">{option.words.zhi4}w</span>
+                    </div>
+                  </div>
                   <Button 
                     className="w-full" 
                     variant={option.popular ? "default" : "outline"}
@@ -243,17 +315,9 @@ export default function Checkout() {
                         Loading...
                       </>
                     ) : (
-                      'Select Package'
+                      'Select'
                     )}
                   </Button>
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-xs text-gray-500">
-                      {option.credits === 5 && "Perfect for trying out"}
-                      {option.credits === 10 && "Great for regular use"}
-                      {option.credits === 20 && "Best value for power users"}
-                      {option.credits === 50 && "Maximum savings"}
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -261,14 +325,34 @@ export default function Checkout() {
 
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <CreditCard className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">What are credits?</h3>
-                  <p className="text-sm text-gray-600">
-                    Credits are used to run analyses on Mind Reader. Each analysis type requires 1 credit. 
-                    Credits never expire and can be used anytime.
-                  </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <CreditCard className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-1">How does pricing work?</h3>
+                    <p className="text-sm text-gray-600">
+                      Your package determines how many words you can process with each ZHI model. 
+                      The more you spend, the better value you get per word. Credits never expire.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <p className="font-semibold text-gray-700 mb-1">ZHI Models:</p>
+                    <ul className="space-y-1 text-gray-600">
+                      <li><strong>ZHI 1:</strong> Primary analysis engine</li>
+                      <li><strong>ZHI 2:</strong> Advanced reasoning</li>
+                      <li><strong>ZHI 3:</strong> Specialized profiling</li>
+                      <li><strong>ZHI 4:</strong> Research-focused</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-700 mb-1">Best Value:</p>
+                    <p className="text-gray-600">
+                      The <strong>$100 Enterprise</strong> package gives you the best value per word across all ZHI models. 
+                      Perfect for power users who run frequent analyses.
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>
